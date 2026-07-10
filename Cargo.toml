@@ -1,0 +1,8 @@
+[workspace]
+members = ["cairn-core", "cairn-digest", "cairn-pkg", "cairn-dirtree"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Daniil Shuraev <shuraev.daniil@gmail.com>"]

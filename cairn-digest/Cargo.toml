@@ -1,0 +1,9 @@
+[package]
+name = "cairn-digest"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[dependencies]
+
+[dev-dependencies]
