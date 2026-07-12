@@ -1,5 +1,6 @@
 //! `DirTree` object (§3, §4.3).
 
+use crate::decode::{DecodeError, Decoder};
 use crate::encode::Encoder;
 use crate::hash::{hash_bytes, HashAlgorithm};
 use crate::id::DirTreeID;
@@ -39,6 +40,25 @@ impl DirTree {
     /// Computes this object's content-addressed ID.
     pub fn id(&self, algo: HashAlgorithm) -> DirTreeID {
         DirTreeID(hash_bytes(algo, &self.encode_canonical()))
+    }
+
+    /// Decodes a `DirTree` from its canonical encoding (§4.3), the inverse of
+    /// [`DirTree::encode_canonical`]. Rejects trailing bytes. The returned
+    /// `nodes` are in the encoded (git tree-sort) order.
+    pub fn decode_canonical(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut d = Decoder::new(bytes);
+        let node_count = d.read_u32()?;
+        let mut nodes = Vec::with_capacity(node_count as usize);
+        for _ in 0..node_count {
+            nodes.push(Node::decode_canonical(&mut d)?);
+        }
+        d.finish()?;
+        Ok(Self { nodes })
+    }
+
+    /// This tree's nodes, in git tree-sort order.
+    pub fn nodes(&self) -> &[Node] {
+        &self.nodes
     }
 }
 

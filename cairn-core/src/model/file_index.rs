@@ -1,5 +1,6 @@
 //! `FileIndex` object (§3, §4.2).
 
+use crate::decode::{DecodeError, Decoder};
 use crate::encode::Encoder;
 use crate::hash::{hash_bytes, HashAlgorithm};
 use crate::id::{ChunkID, FileIndexID};
@@ -30,6 +31,19 @@ impl FileIndex {
     /// Computes this object's content-addressed ID.
     pub fn id(&self, algo: HashAlgorithm) -> FileIndexID {
         FileIndexID(hash_bytes(algo, &self.encode_canonical()))
+    }
+
+    /// Decodes a `FileIndex` from its canonical encoding (§4.2), the inverse of
+    /// [`FileIndex::encode_canonical`]. Rejects trailing bytes.
+    pub fn decode_canonical(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut d = Decoder::new(bytes);
+        let chunk_count = d.read_u32()?;
+        let mut chunks = Vec::with_capacity(chunk_count as usize);
+        for _ in 0..chunk_count {
+            chunks.push(ChunkID(d.read_hash()?));
+        }
+        d.finish()?;
+        Ok(Self { chunks })
     }
 }
 

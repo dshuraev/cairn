@@ -13,6 +13,8 @@
 
 pub use fastcdc;
 
+pub mod bundle;
+pub mod decode;
 pub mod encode;
 pub mod hash;
 pub mod id;

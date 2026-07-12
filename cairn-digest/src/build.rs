@@ -13,6 +13,7 @@ use crate::hardlink::{HardlinkTracker, Inode};
 use crate::metadata::build_metadata;
 use crate::store::Store;
 use crate::walk::{RawKind, WalkEntry};
+use cairn_core::bundle::{DirTreeBundle, ObjectKind};
 use cairn_core::hash::HashAlgorithm;
 use cairn_core::id::{DirTreeID, FileIndexID};
 use cairn_core::model::{DirTree, FileIndex, Node, NodeKind};
@@ -40,6 +41,11 @@ fn inode_of(entry: &WalkEntry) -> Inode {
 /// FileIndex, Metadata, and DirTree object into `store` (deduplicated, §6.1),
 /// and returns the root `DirTreeID`.
 ///
+/// Every `DirTree`, `Metadata`, and `FileIndex` object built along the way
+/// (everything except raw `Chunk` bytes) is also inserted into `bundle`, so
+/// the caller can write a standalone `--out` (§5.7) that's fully inspectable
+/// without `store`.
+///
 /// `tracker` must be the tracker returned alongside `walked` by the same
 /// `walk_tree` call. `walked` itself is assumed to represent a directory (the
 /// source root); only its `children` become `Node`s in the returned tree.
@@ -48,9 +54,10 @@ pub fn build_tree(
     tracker: &HardlinkTracker,
     store: &Store,
     options: &DigestOptions,
+    bundle: &mut DirTreeBundle,
 ) -> Result<DirTreeID, DigestError> {
     let mut file_index_cache: HashMap<Inode, FileIndexID> = HashMap::new();
-    build_dir(walked, tracker, store, options, &mut file_index_cache)
+    build_dir(walked, tracker, store, options, &mut file_index_cache, bundle)
 }
 
 fn build_dir(
@@ -59,6 +66,7 @@ fn build_dir(
     store: &Store,
     options: &DigestOptions,
     file_index_cache: &mut HashMap<Inode, FileIndexID>,
+    bundle: &mut DirTreeBundle,
 ) -> Result<DirTreeID, DigestError> {
     let mut nodes = Vec::with_capacity(dir_entry.children.len());
     for child in &dir_entry.children {
@@ -68,11 +76,14 @@ fn build_dir(
             store,
             options,
             file_index_cache,
+            bundle,
         )?);
     }
     let dir_tree = DirTree::new(nodes);
     let id = dir_tree.id(options.algo);
-    store.write(&id.0, &dir_tree.encode_canonical(), options.algo)?;
+    let encoded = dir_tree.encode_canonical();
+    store.write(&id.0, &encoded, options.algo)?;
+    bundle.insert(ObjectKind::DirTree, id.0, encoded);
     Ok(id)
 }
 
@@ -85,10 +96,13 @@ fn build_node(
     store: &Store,
     options: &DigestOptions,
     file_index_cache: &mut HashMap<Inode, FileIndexID>,
+    bundle: &mut DirTreeBundle,
 ) -> Result<Node, DigestError> {
     let metadata = build_metadata(&entry.metadata);
     let metadata_id = metadata.id(options.algo);
-    store.write(&metadata_id.0, &metadata.encode_canonical(), options.algo)?;
+    let encoded_metadata = metadata.encode_canonical();
+    store.write(&metadata_id.0, &encoded_metadata, options.algo)?;
+    bundle.insert(ObjectKind::Metadata, metadata_id.0, encoded_metadata);
 
     let inode = inode_of(entry);
     // Only regular files are ever observed by the tracker (walk::walk_entry),
@@ -107,11 +121,9 @@ fn build_node(
                     let chunk_ids = chunks.into_iter().map(|(id, _)| id).collect();
                     let file_index = FileIndex::new(chunk_ids);
                     let file_index_id = file_index.id(options.algo);
-                    store.write(
-                        &file_index_id.0,
-                        &file_index.encode_canonical(),
-                        options.algo,
-                    )?;
+                    let encoded_file_index = file_index.encode_canonical();
+                    store.write(&file_index_id.0, &encoded_file_index, options.algo)?;
+                    bundle.insert(ObjectKind::FileIndex, file_index_id.0, encoded_file_index);
                     file_index_cache.insert(inode, file_index_id);
                     file_index_id
                 }
@@ -119,7 +131,7 @@ fn build_node(
             NodeKind::File { file_index_id }
         }
         RawKind::Dir => {
-            let children_id = build_dir(entry, tracker, store, options, file_index_cache)?;
+            let children_id = build_dir(entry, tracker, store, options, file_index_cache, bundle)?;
             NodeKind::Dir { children_id }
         }
         RawKind::Symlink { target } => NodeKind::Symlink {
@@ -155,9 +167,9 @@ mod tests {
 
     /// Directly exercises `build_node`'s wiring of `tracker.link_group` for two
     /// hardlinked paths in different subdirectories, without needing to decode
-    /// anything back out of the store (cairn-digest has no decoder; that's out
-    /// of scope here). This is the property the walk/build split (Fix 1) exists
-    /// to guarantee: both nodes must carry the same non-`None` link group.
+    /// anything back out of the store. This is the property the walk/build
+    /// split (Fix 1) exists to guarantee: both nodes must carry the same
+    /// non-`None` link group.
     #[test]
     fn hardlinked_paths_get_matching_link_group_in_built_nodes() {
         let root = unique_temp_dir("hardlink-nodes");
@@ -171,14 +183,15 @@ mod tests {
         let store_dir = unique_temp_dir("hardlink-store");
         let store = Store::new(store_dir.clone(), vec![]);
         let mut cache = HashMap::new();
+        let mut bundle = DirTreeBundle::new();
 
         let dir_a = root_entry.children.iter().find(|c| c.name == "a").unwrap();
         let dir_b = root_entry.children.iter().find(|c| c.name == "b").unwrap();
         let file_a = &dir_a.children[0];
         let file_b = &dir_b.children[0];
 
-        let node_a = build_node(file_a, &tracker, &store, &options, &mut cache).unwrap();
-        let node_b = build_node(file_b, &tracker, &store, &options, &mut cache).unwrap();
+        let node_a = build_node(file_a, &tracker, &store, &options, &mut cache, &mut bundle).unwrap();
+        let node_b = build_node(file_b, &tracker, &store, &options, &mut cache, &mut bundle).unwrap();
 
         assert!(node_a.link_group.is_some());
         assert_eq!(node_a.link_group, node_b.link_group);

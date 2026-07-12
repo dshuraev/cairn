@@ -1,3 +1,5 @@
+use cairn_core::bundle::DirTreeBundle;
+use cairn_core::hash::HashAlgorithm;
 use cairn_digest::store::Store;
 use cairn_digest::{digest, DigestOptions};
 use std::path::PathBuf;
@@ -13,7 +15,7 @@ fn unique_temp_dir(label: &str) -> PathBuf {
 }
 
 #[test]
-fn digest_writes_root_id_bytes_atomically_on_success() {
+fn digest_writes_a_standalone_bundle_decodable_without_the_store() {
     let src = unique_temp_dir("digest-success-src");
     std::fs::write(src.join("file.txt"), b"some content").unwrap();
 
@@ -26,8 +28,11 @@ fn digest_writes_root_id_bytes_atomically_on_success() {
     let root_id = digest(&src, &store, &out_path, &options).unwrap();
 
     let written = std::fs::read(&out_path).unwrap();
-    assert_eq!(written.len(), 32);
-    assert_eq!(written, root_id.0 .0);
+    let (decoded_root, algo, bundle) = DirTreeBundle::decode_canonical(&written).unwrap();
+    assert_eq!(decoded_root, root_id);
+    assert_eq!(algo, HashAlgorithm::Sha256);
+    // Root DirTree + "file.txt"'s Metadata + its FileIndex (no raw chunk bytes).
+    assert_eq!(bundle.len(), 3);
 
     // No leftover temp file.
     assert!(!out_dir.join("root.dirtree.tmp").exists());

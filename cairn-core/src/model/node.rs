@@ -1,5 +1,6 @@
 //! `Node` and `NodeKind` (§3, §4.3).
 
+use crate::decode::{DecodeError, Decoder};
 use crate::encode::Encoder;
 use crate::id::{DirTreeID, FileIndexID, LinkGroupID, MetadataID};
 
@@ -74,6 +75,28 @@ impl NodeKind {
             NodeKind::Fifo | NodeKind::Socket => {}
         }
     }
+
+    /// Decodes the payload matching `kind_tag`, the inverse of `encode_payload`.
+    fn decode_payload(kind_tag: u8, d: &mut Decoder) -> Result<Self, DecodeError> {
+        Ok(match kind_tag {
+            0 => NodeKind::File {
+                file_index_id: FileIndexID(d.read_hash()?),
+            },
+            1 => NodeKind::Dir {
+                children_id: DirTreeID(d.read_hash()?),
+            },
+            2 => NodeKind::Symlink {
+                target: d.read_str()?,
+            },
+            3 => NodeKind::Device {
+                major: d.read_u32()?,
+                minor: d.read_u32()?,
+            },
+            4 => NodeKind::Fifo,
+            5 => NodeKind::Socket,
+            other => return Err(DecodeError::InvalidTag(other)),
+        })
+    }
 }
 
 /// One directory entry: a name plus its metadata, optional hardlink group, and
@@ -122,6 +145,28 @@ impl Node {
             }
         }
         self.kind.encode_payload(e);
+    }
+
+    /// Decodes one `Node` from `d`, the inverse of `encode_canonical`. Does not
+    /// consume any bytes beyond this node's own encoding, so callers (e.g.
+    /// `DirTree::decode_canonical`) can call this in a loop over a sequence of
+    /// nodes.
+    pub(crate) fn decode_canonical(d: &mut Decoder) -> Result<Self, DecodeError> {
+        let name = d.read_str()?;
+        let kind_tag = d.read_u8()?;
+        let metadata_id = MetadataID(d.read_hash()?);
+        let link_group = match d.read_u8()? {
+            0 => None,
+            1 => Some(LinkGroupID(d.read_hash()?)),
+            other => return Err(DecodeError::InvalidTag(other)),
+        };
+        let kind = NodeKind::decode_payload(kind_tag, d)?;
+        Ok(Node {
+            name,
+            metadata_id,
+            link_group,
+            kind,
+        })
     }
 }
 

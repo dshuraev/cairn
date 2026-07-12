@@ -1,5 +1,6 @@
 //! `Metadata` object (§3, §4.4).
 
+use crate::decode::{DecodeError, Decoder};
 use crate::encode::Encoder;
 use crate::hash::{hash_bytes, HashAlgorithm};
 use crate::id::MetadataID;
@@ -48,6 +49,31 @@ impl Metadata {
     /// Computes this object's content-addressed ID.
     pub fn id(&self, algo: HashAlgorithm) -> MetadataID {
         MetadataID(hash_bytes(algo, &self.encode_canonical()))
+    }
+
+    /// Decodes a `Metadata` from its canonical encoding (§4.4), the inverse of
+    /// [`Metadata::encode_canonical`]. Rejects trailing bytes.
+    pub fn decode_canonical(bytes: &[u8]) -> Result<Self, DecodeError> {
+        let mut d = Decoder::new(bytes);
+        let mode = d.read_u32()?;
+        let uid = d.read_u32()?;
+        let gid = d.read_u32()?;
+        let xattr_count = d.read_u32()?;
+        let mut xattrs = Vec::with_capacity(xattr_count as usize);
+        for _ in 0..xattr_count {
+            let name = d.read_str()?;
+            let value = d.read_bytes()?;
+            xattrs.push((name, value));
+        }
+        d.finish()?;
+        // Xattrs were already sorted/deduped by the encoding side; skip
+        // `Metadata::new`'s re-sort to preserve the encoded order exactly.
+        Ok(Self {
+            mode,
+            uid,
+            gid,
+            xattrs,
+        })
     }
 }
 

@@ -1,4 +1,5 @@
 use cairn_core::hash::HashAlgorithm;
+use cairn_core::bundle::DirTreeBundle;
 use cairn_digest::build::{build_tree, DigestOptions};
 use cairn_digest::store::Store;
 use cairn_digest::walk::walk_tree;
@@ -51,12 +52,12 @@ fn build_tree_is_deterministic_across_separate_stores() {
     let store1_dir = unique_temp_dir("determinism-store1");
     let (walked1, tracker1) = walk_tree(&source, options.algo).unwrap();
     let store1 = Store::new(store1_dir.clone(), vec![]);
-    let id1 = build_tree(&walked1, &tracker1, &store1, &options).unwrap();
+    let id1 = build_tree(&walked1, &tracker1, &store1, &options, &mut DirTreeBundle::new()).unwrap();
 
     let store2_dir = unique_temp_dir("determinism-store2");
     let (walked2, tracker2) = walk_tree(&source, options.algo).unwrap();
     let store2 = Store::new(store2_dir.clone(), vec![]);
-    let id2 = build_tree(&walked2, &tracker2, &store2, &options).unwrap();
+    let id2 = build_tree(&walked2, &tracker2, &store2, &options, &mut DirTreeBundle::new()).unwrap();
 
     assert_eq!(
         id1, id2,
@@ -76,7 +77,7 @@ fn cross_file_dedup_reduces_store_size_and_rerun_is_idempotent() {
 
     let store_dir = unique_temp_dir("dedup-store");
     let store = Store::new(store_dir.clone(), vec![]);
-    build_tree(&walked, &tracker, &store, &options).unwrap();
+    build_tree(&walked, &tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
 
     let count_after_first_build = std::fs::read_dir(&store_dir).unwrap().count();
 
@@ -96,7 +97,7 @@ fn cross_file_dedup_reduces_store_size_and_rerun_is_idempotent() {
     );
 
     // Re-running against the same store must write zero new files.
-    build_tree(&walked, &tracker, &store, &options).unwrap();
+    build_tree(&walked, &tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
     let count_after_second_build = std::fs::read_dir(&store_dir).unwrap().count();
     assert_eq!(count_after_first_build, count_after_second_build);
 
@@ -112,7 +113,7 @@ fn identical_content_in_different_files_shares_one_chunk() {
 
     let store_dir = unique_temp_dir("shared-chunk-store");
     let store = Store::new(store_dir.clone(), vec![]);
-    build_tree(&walked, &tracker, &store, &options).unwrap();
+    build_tree(&walked, &tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
 
     let expected_chunk_id =
         cairn_core::hash::hash_bytes(HashAlgorithm::Sha256, b"duplicate content for dedup test");
