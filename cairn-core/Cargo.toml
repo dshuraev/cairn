@@ -5,5 +5,7 @@ edition.workspace = true
 authors.workspace = true
 
 [dependencies]
+fastcdc = "4.0.1"
+sha2 = "0.10"
 
 [dev-dependencies]
