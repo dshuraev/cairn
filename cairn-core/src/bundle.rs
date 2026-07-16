@@ -100,12 +100,20 @@ impl DirTreeBundle {
     /// self-contained byte stream suitable for writing to `--out`: an algo
     /// tag, the root ID, an object count, then each object as
     /// `kind_tag || id || len_prefixed bytes`.
+    ///
+    /// Objects are encoded in strictly ascending order of their ID (hash bytes)
+    /// to ensure canonical (deterministic) encoding for deduplication (§4.1).
     pub fn encode_canonical(&self, root: DirTreeID, algo: HashAlgorithm) -> Vec<u8> {
         let mut e = Encoder::new();
         e.write_u8(algo_tag(algo));
         e.write_hash(&root.0);
         e.write_u32(self.objects.len() as u32);
-        for (id, (kind, bytes)) in &self.objects {
+
+        // Sort objects by ID for canonical encoding
+        let mut sorted_objects: Vec<_> = self.objects.iter().collect();
+        sorted_objects.sort_by(|(id_a, _), (id_b, _)| id_a.0.cmp(&id_b.0));
+
+        for (id, (kind, bytes)) in sorted_objects {
             e.write_u8(kind.tag());
             e.write_hash(id);
             e.write_bytes(bytes);
@@ -188,5 +196,74 @@ mod tests {
         let (decoded_root, _algo, decoded) = DirTreeBundle::decode_canonical(&encoded).unwrap();
         assert_eq!(decoded_root, root);
         assert!(decoded.is_empty());
+    }
+
+    #[test]
+    fn objects_encoded_in_sorted_id_order() {
+        // Create multiple objects with distinct IDs.
+        // We'll create hashes from different inputs and verify they
+        // appear in the encoded output in strictly ascending order by ID.
+        let mut bundle = DirTreeBundle::new();
+
+        // Create 6 objects with different inputs to get different hashes
+        let h1 = hash_bytes(HashAlgorithm::Sha256, b"object_1");
+        let h2 = hash_bytes(HashAlgorithm::Sha256, b"object_2");
+        let h3 = hash_bytes(HashAlgorithm::Sha256, b"object_3");
+        let h4 = hash_bytes(HashAlgorithm::Sha256, b"object_4");
+        let h5 = hash_bytes(HashAlgorithm::Sha256, b"object_5");
+        let h6 = hash_bytes(HashAlgorithm::Sha256, b"object_6");
+
+        // Insert them in a deliberately non-sorted order
+        bundle.insert(ObjectKind::DirTree, h5, b"bytes_5".to_vec());
+        bundle.insert(ObjectKind::Metadata, h2, b"bytes_2".to_vec());
+        bundle.insert(ObjectKind::FileIndex, h6, b"bytes_6".to_vec());
+        bundle.insert(ObjectKind::DirTree, h1, b"bytes_1".to_vec());
+        bundle.insert(ObjectKind::Metadata, h4, b"bytes_4".to_vec());
+        bundle.insert(ObjectKind::FileIndex, h3, b"bytes_3".to_vec());
+
+        let root = DirTreeID(h1);
+        let encoded = bundle.encode_canonical(root, HashAlgorithm::Sha256);
+
+        // Decode and extract the object IDs in the order they appear
+        let (_, _, decoded) = DirTreeBundle::decode_canonical(&encoded).unwrap();
+
+        // Manually parse the encoded bytes to check ordering of objects
+        // Format: 1 byte (algo) + 32 bytes (root) + 4 bytes (count) + objects
+        let mut offset = 1 + 32 + 4;
+        let mut extracted_ids = Vec::new();
+
+        for _ in 0..6 {
+            // Skip kind tag (1 byte)
+            offset += 1;
+            // Extract the 32-byte object ID
+            let id_bytes = &encoded[offset..offset + 32];
+            let mut id_array = [0u8; 32];
+            id_array.copy_from_slice(id_bytes);
+            extracted_ids.push(Hash(id_array));
+            offset += 32;
+            // Skip length-prefixed bytes
+            let len = u32::from_le_bytes([
+                encoded[offset],
+                encoded[offset + 1],
+                encoded[offset + 2],
+                encoded[offset + 3],
+            ]) as usize;
+            offset += 4 + len;
+        }
+
+        // Verify that extracted IDs are in strictly ascending order
+        for i in 0..extracted_ids.len() - 1 {
+            assert!(
+                extracted_ids[i].0 < extracted_ids[i + 1].0,
+                "Objects not sorted: id[{}] = {} >= id[{}] = {}",
+                i,
+                extracted_ids[i],
+                i + 1,
+                extracted_ids[i + 1]
+            );
+        }
+
+        // Also verify that we got all the expected objects
+        assert_eq!(decoded.len(), 6);
     }
 }
