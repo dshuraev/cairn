@@ -31,7 +31,7 @@ fn seed_store_dedup_avoids_writing_content_already_present_in_the_seed() {
 
     let chunk_id = hash_bytes(HashAlgorithm::Sha256, SHARED_CONTENT);
     assert!(
-        store_a_dir.join(chunk_id.to_string()).exists(),
+        store_a_dir.join("sha256").join(chunk_id.to_string()).exists(),
         "store A must contain the shared chunk after building source A"
     );
 
@@ -46,9 +46,9 @@ fn seed_store_dedup_avoids_writing_content_already_present_in_the_seed() {
 
     // The seed lookup must have found chunk C in store A and skipped writing
     // it into store B (§6.1) -- it should exist only in A, never in B.
-    assert!(store_a_dir.join(chunk_id.to_string()).exists());
+    assert!(store_a_dir.join("sha256").join(chunk_id.to_string()).exists());
     assert!(
-        !store_b_dir.join(chunk_id.to_string()).exists(),
+        !store_b_dir.join("sha256").join(chunk_id.to_string()).exists(),
         "chunk already present in the seed store must not be duplicated into the primary store"
     );
 

@@ -46,12 +46,14 @@ impl ObjectKind {
 fn algo_tag(algo: HashAlgorithm) -> u8 {
     match algo {
         HashAlgorithm::Sha256 => 0,
+        HashAlgorithm::Blake3 => 1,
     }
 }
 
 fn algo_from_tag(tag: u8) -> Result<HashAlgorithm, DecodeError> {
     match tag {
         0 => Ok(HashAlgorithm::Sha256),
+        1 => Ok(HashAlgorithm::Blake3),
         other => Err(DecodeError::InvalidTag(other)),
     }
 }

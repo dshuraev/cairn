@@ -1,7 +1,7 @@
 //! Content-addressed chunk store with dedup and atomic writes (§6.1, §8).
 
 use crate::error::DigestError;
-use cairn_core::hash::{hash_bytes, Hash, HashAlgorithm};
+use cairn_core::hash::{algo_tag_str, hash_bytes, Hash, HashAlgorithm};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -20,21 +20,24 @@ impl Store {
         Self { primary, seeds }
     }
 
-    /// The path an object with the given ID would occupy within `dir`: a flat
-    /// directory, filename = lowercase hex of the ID. §9 defers on-disk layout
-    /// entirely; this is the one function to change if sharding is ever added.
-    fn object_path(dir: &Path, id: &Hash) -> PathBuf {
-        dir.join(id.to_string())
+    /// The path an object with the given ID would occupy within `dir`: a
+    /// per-algorithm subdirectory (sha256/ or blake3/), then filename =
+    /// lowercase hex of the ID. This namespacing ensures objects from different
+    /// algorithms do not collide (§9). §9 defers on-disk layout entirely; this
+    /// is the one function to change if sharding is ever added.
+    fn object_path(dir: &Path, algo: HashAlgorithm, id: &Hash) -> PathBuf {
+        let algo_dir = algo_tag_str(algo);
+        dir.join(algo_dir).join(id.to_string())
     }
 
     /// Whether an object with this ID already exists, in the primary store or
-    /// any seed store, checked in order.
-    pub fn contains(&self, id: &Hash) -> bool {
-        Self::object_path(&self.primary, id).exists()
+    /// any seed store (checked in order), under the given hash algorithm.
+    pub fn contains(&self, algo: HashAlgorithm, id: &Hash) -> bool {
+        Self::object_path(&self.primary, algo, id).exists()
             || self
                 .seeds
                 .iter()
-                .any(|seed| Self::object_path(seed, id).exists())
+                .any(|seed| Self::object_path(seed, algo, id).exists())
     }
 
     /// Writes `bytes` under `id` into the primary store.
@@ -44,7 +47,8 @@ impl Store {
     /// and rejects the write if it doesn't match `id` — a caller-supplied ID is
     /// never trusted without recomputing. Uses write-temp → verify → rename so
     /// a process killed mid-write never leaves a partial object in the store
-    /// (§8).
+    /// (§8). Tmp files are stored under the algorithm-specific subdirectory to
+    /// avoid namespace pollution.
     pub fn write(&self, id: &Hash, bytes: &[u8], algo: HashAlgorithm) -> Result<(), DigestError> {
         let actual = hash_bytes(algo, bytes);
         if actual != *id {
@@ -53,10 +57,11 @@ impl Store {
                 actual,
             });
         }
-        if self.contains(id) {
+        if self.contains(algo, id) {
             return Ok(());
         }
-        fs::create_dir_all(&self.primary)?;
+        let algo_dir = self.primary.join(algo_tag_str(algo));
+        fs::create_dir_all(&algo_dir)?;
 
         // Use a unique tmp filename per call to avoid TOCTOU race when concurrent
         // calls target the same ID. Derive uniqueness from thread ID + system time nanos.
@@ -67,9 +72,9 @@ impl Store {
             .as_nanos();
         let unique_suffix = format!("{:?}-{:x}", thread_id, time_nanos);
 
-        let tmp_path = self.primary.join(format!("{id}.{unique_suffix}.tmp"));
+        let tmp_path = algo_dir.join(format!("{id}.{unique_suffix}.tmp"));
         fs::write(&tmp_path, bytes)?;
-        fs::rename(&tmp_path, Self::object_path(&self.primary, id))?;
+        fs::rename(&tmp_path, Self::object_path(&self.primary, algo, id))?;
         Ok(())
     }
 }
@@ -99,7 +104,7 @@ mod tests {
         store.write(&id, bytes, HashAlgorithm::Sha256).unwrap();
         store.write(&id, bytes, HashAlgorithm::Sha256).unwrap();
 
-        assert!(store.contains(&id));
+        assert!(store.contains(HashAlgorithm::Sha256, &id));
         fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -114,10 +119,10 @@ mod tests {
         seed_store.write(&id, bytes, HashAlgorithm::Sha256).unwrap();
 
         let store = Store::new(primary_dir, vec![seed_dir]);
-        assert!(store.contains(&id));
+        assert!(store.contains(HashAlgorithm::Sha256, &id));
 
         let other_id = hash_bytes(HashAlgorithm::Sha256, b"not present anywhere");
-        assert!(!store.contains(&other_id));
+        assert!(!store.contains(HashAlgorithm::Sha256, &other_id));
 
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -131,8 +136,9 @@ mod tests {
 
         let result = store.write(&wrong_id, b"actual content", HashAlgorithm::Sha256);
         assert!(result.is_err());
-        assert!(!store.contains(&wrong_id));
-        assert!(!primary.exists() || fs::read_dir(&primary).unwrap().next().is_none());
+        assert!(!store.contains(HashAlgorithm::Sha256, &wrong_id));
+        let algo_subdir = primary.join("sha256");
+        assert!(!algo_subdir.exists() || fs::read_dir(&algo_subdir).unwrap().next().is_none());
 
         fs::remove_dir_all(&dir).unwrap();
     }
@@ -146,7 +152,8 @@ mod tests {
         let id = hash_bytes(HashAlgorithm::Sha256, bytes);
         store.write(&id, bytes, HashAlgorithm::Sha256).unwrap();
 
-        let has_tmp = fs::read_dir(&primary).unwrap().any(|entry| {
+        let algo_subdir = primary.join("sha256");
+        let has_tmp = fs::read_dir(&algo_subdir).unwrap().any(|entry| {
             entry
                 .unwrap()
                 .path()
@@ -198,7 +205,7 @@ mod tests {
 
         // Verify the final committed object is not corrupted:
         // re-hash the bytes on disk and compare against expected ID
-        let final_obj_path = Store::object_path(&store.primary, &id);
+        let final_obj_path = Store::object_path(&store.primary, HashAlgorithm::Sha256, &id);
         assert!(final_obj_path.exists(), "Object should exist after concurrent writes");
 
         let stored_bytes = fs::read(&final_obj_path).unwrap();
@@ -207,6 +214,33 @@ mod tests {
             stored_hash, id,
             "Stored object must have correct hash; concurrent writes corrupted it"
         );
+
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn object_paths_are_namespaced_by_algorithm() {
+        let dir = unique_temp_dir("algo-namespace");
+        let _store = Store::new(dir.join("primary"), vec![]);
+
+        // Test that object paths differ based on algorithm, preventing collisions.
+        // We use the same ID bytes but different algorithms to prove the namespace
+        // separation works correctly.
+        let test_id = Hash([0x42u8; 32]);
+
+        // Compute paths for this ID under different algorithms
+        let sha256_path = Store::object_path(&dir.join("primary"), HashAlgorithm::Sha256, &test_id);
+        let blake3_path = Store::object_path(&dir.join("primary"), HashAlgorithm::Blake3, &test_id);
+
+        // Paths must differ (one under sha256/, one under blake3/)
+        assert_ne!(
+            sha256_path, blake3_path,
+            "Paths for the same ID under different algorithms must differ (different subdirectories)"
+        );
+
+        // Verify they have different directory components
+        assert!(sha256_path.to_string_lossy().contains("sha256"));
+        assert!(blake3_path.to_string_lossy().contains("blake3"));
 
         fs::remove_dir_all(&dir).unwrap();
     }

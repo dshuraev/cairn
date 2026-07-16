@@ -79,7 +79,8 @@ fn cross_file_dedup_reduces_store_size_and_rerun_is_idempotent() {
     let store = Store::new(store_dir.clone(), vec![]);
     build_tree(&walked, &tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
 
-    let count_after_first_build = std::fs::read_dir(&store_dir).unwrap().count();
+    let algo_dir = store_dir.join("sha256");
+    let count_after_first_build = std::fs::read_dir(&algo_dir).unwrap().count();
 
     // Hand-computable upper bound assuming *zero* dedup: 5 file-content nodes
     // (dup1, dup2, deep, shared.bin x2) each need a chunk + a FileIndex (10),
@@ -98,7 +99,7 @@ fn cross_file_dedup_reduces_store_size_and_rerun_is_idempotent() {
 
     // Re-running against the same store must write zero new files.
     build_tree(&walked, &tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
-    let count_after_second_build = std::fs::read_dir(&store_dir).unwrap().count();
+    let count_after_second_build = std::fs::read_dir(&algo_dir).unwrap().count();
     assert_eq!(count_after_first_build, count_after_second_build);
 
     std::fs::remove_dir_all(&source).unwrap();
@@ -117,7 +118,7 @@ fn identical_content_in_different_files_shares_one_chunk() {
 
     let expected_chunk_id =
         cairn_core::hash::hash_bytes(HashAlgorithm::Sha256, b"duplicate content for dedup test");
-    let object_path = store_dir.join(expected_chunk_id.to_string());
+    let object_path = store_dir.join("sha256").join(expected_chunk_id.to_string());
     assert!(
         object_path.exists(),
         "the shared content's chunk must exist in the store exactly once, content-addressed"
