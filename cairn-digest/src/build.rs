@@ -98,7 +98,7 @@ fn build_node(
     file_index_cache: &mut HashMap<Inode, FileIndexID>,
     bundle: &mut DirTreeBundle,
 ) -> Result<Node, DigestError> {
-    let metadata = build_metadata(&entry.metadata);
+    let metadata = build_metadata(&entry.path, &entry.metadata)?;
     let metadata_id = metadata.id(options.algo);
     let encoded_metadata = metadata.encode_canonical();
     store.write(&metadata_id.0, &encoded_metadata, options.algo)?;

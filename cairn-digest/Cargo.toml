@@ -6,5 +6,6 @@ authors.workspace = true
 
 [dependencies]
 cairn-core = { path = "../cairn-core" }
+xattr = "1.6.1"
 
 [dev-dependencies]
