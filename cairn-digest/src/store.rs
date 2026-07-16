@@ -57,7 +57,17 @@ impl Store {
             return Ok(());
         }
         fs::create_dir_all(&self.primary)?;
-        let tmp_path = self.primary.join(format!("{id}.tmp"));
+
+        // Use a unique tmp filename per call to avoid TOCTOU race when concurrent
+        // calls target the same ID. Derive uniqueness from thread ID + system time nanos.
+        let thread_id = std::thread::current().id();
+        let time_nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos();
+        let unique_suffix = format!("{:?}-{:x}", thread_id, time_nanos);
+
+        let tmp_path = self.primary.join(format!("{id}.{unique_suffix}.tmp"));
         fs::write(&tmp_path, bytes)?;
         fs::rename(&tmp_path, Self::object_path(&self.primary, id))?;
         Ok(())
@@ -144,6 +154,59 @@ mod tests {
                 .is_some_and(|ext| ext == "tmp")
         });
         assert!(!has_tmp);
+
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn concurrent_writes_same_id_are_safe() {
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        let dir = unique_temp_dir("concurrent-write");
+        let primary = dir.join("primary");
+        let store = Arc::new(Store::new(primary, vec![]));
+
+        let bytes = b"shared content for concurrent test";
+        let id = hash_bytes(HashAlgorithm::Sha256, bytes);
+
+        let num_threads = 16;
+        let barrier = Arc::new(Barrier::new(num_threads));
+
+        let handles: Vec<_> = (0..num_threads)
+            .map(|_| {
+                let store_clone = Arc::clone(&store);
+                let barrier_clone = Arc::clone(&barrier);
+                let id_copy = id;
+                let bytes_copy = bytes.to_vec();
+
+                thread::spawn(move || {
+                    // Synchronize to maximize chance of concurrent interleaving
+                    barrier_clone.wait();
+                    store_clone.write(&id_copy, &bytes_copy, HashAlgorithm::Sha256)
+                })
+            })
+            .collect();
+
+        // Collect results from all threads
+        let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+
+        // All threads should complete successfully (or harmlessly if object already exists)
+        for result in results {
+            assert!(result.is_ok());
+        }
+
+        // Verify the final committed object is not corrupted:
+        // re-hash the bytes on disk and compare against expected ID
+        let final_obj_path = Store::object_path(&store.primary, &id);
+        assert!(final_obj_path.exists(), "Object should exist after concurrent writes");
+
+        let stored_bytes = fs::read(&final_obj_path).unwrap();
+        let stored_hash = hash_bytes(HashAlgorithm::Sha256, &stored_bytes);
+        assert_eq!(
+            stored_hash, id,
+            "Stored object must have correct hash; concurrent writes corrupted it"
+        );
 
         fs::remove_dir_all(&dir).unwrap();
     }

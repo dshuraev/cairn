@@ -111,7 +111,7 @@ impl DirTreeBundle {
 
         // Sort objects by ID for canonical encoding
         let mut sorted_objects: Vec<_> = self.objects.iter().collect();
-        sorted_objects.sort_by(|(id_a, _), (id_b, _)| id_a.0.cmp(&id_b.0));
+        sorted_objects.sort_by_key(|(id_a, _)| id_a.0);
 
         for (id, (kind, bytes)) in sorted_objects {
             e.write_u8(kind.tag());
