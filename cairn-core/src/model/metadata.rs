@@ -75,6 +75,28 @@ impl Metadata {
             xattrs,
         })
     }
+
+    // Public API
+
+    /// Permission bits (mode) for this node.
+    pub fn mode(&self) -> u32 {
+        self.mode
+    }
+
+    /// User ID (owner) of this node.
+    pub fn uid(&self) -> u32 {
+        self.uid
+    }
+
+    /// Group ID of this node.
+    pub fn gid(&self) -> u32 {
+        self.gid
+    }
+
+    /// Extended attributes (name-value pairs) for this node.
+    pub fn xattrs(&self) -> &[(String, Vec<u8>)] {
+        &self.xattrs
+    }
 }
 
 #[cfg(test)]

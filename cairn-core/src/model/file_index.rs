@@ -45,6 +45,11 @@ impl FileIndex {
         d.finish()?;
         Ok(Self { chunks })
     }
+
+    /// This file's content, as an ordered list of chunk IDs.
+    pub fn chunks(&self) -> &[ChunkID] {
+        &self.chunks
+    }
 }
 
 #[cfg(test)]

@@ -16,10 +16,9 @@ pub mod digest;
 pub mod error;
 pub mod hardlink;
 pub mod metadata;
-pub mod store;
 pub mod walk;
 
 pub use build::DigestOptions;
 pub use digest::digest;
 pub use error::DigestError;
-pub use store::Store;
+pub use cairn_store::Store;

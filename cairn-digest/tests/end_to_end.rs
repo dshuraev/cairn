@@ -1,7 +1,7 @@
 use cairn_core::hash::HashAlgorithm;
 use cairn_core::bundle::DirTreeBundle;
 use cairn_digest::build::{build_tree, DigestOptions};
-use cairn_digest::store::Store;
+use cairn_store::Store;
 use cairn_digest::walk::walk_tree;
 use std::path::PathBuf;
 
@@ -50,14 +50,14 @@ fn build_tree_is_deterministic_across_separate_stores() {
     let options = DigestOptions::default();
 
     let store1_dir = unique_temp_dir("determinism-store1");
-    let (walked1, tracker1) = walk_tree(&source, options.algo).unwrap();
+    let (walked1, mut tracker1) = walk_tree(&source, options.algo).unwrap();
     let store1 = Store::new(store1_dir.clone(), vec![]);
-    let id1 = build_tree(&walked1, &tracker1, &store1, &options, &mut DirTreeBundle::new()).unwrap();
+    let id1 = build_tree(&walked1, &mut tracker1, &store1, &options, &mut DirTreeBundle::new()).unwrap();
 
     let store2_dir = unique_temp_dir("determinism-store2");
-    let (walked2, tracker2) = walk_tree(&source, options.algo).unwrap();
+    let (walked2, mut tracker2) = walk_tree(&source, options.algo).unwrap();
     let store2 = Store::new(store2_dir.clone(), vec![]);
-    let id2 = build_tree(&walked2, &tracker2, &store2, &options, &mut DirTreeBundle::new()).unwrap();
+    let id2 = build_tree(&walked2, &mut tracker2, &store2, &options, &mut DirTreeBundle::new()).unwrap();
 
     assert_eq!(
         id1, id2,
@@ -73,11 +73,11 @@ fn build_tree_is_deterministic_across_separate_stores() {
 fn cross_file_dedup_reduces_store_size_and_rerun_is_idempotent() {
     let source = make_source_tree("dedup-src");
     let options = DigestOptions::default();
-    let (walked, tracker) = walk_tree(&source, options.algo).unwrap();
+    let (walked, mut tracker) = walk_tree(&source, options.algo).unwrap();
 
     let store_dir = unique_temp_dir("dedup-store");
     let store = Store::new(store_dir.clone(), vec![]);
-    build_tree(&walked, &tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
+    build_tree(&walked, &mut tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
 
     let algo_dir = store_dir.join("sha256");
     let count_after_first_build = std::fs::read_dir(&algo_dir).unwrap().count();
@@ -98,7 +98,7 @@ fn cross_file_dedup_reduces_store_size_and_rerun_is_idempotent() {
     );
 
     // Re-running against the same store must write zero new files.
-    build_tree(&walked, &tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
+    build_tree(&walked, &mut tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
     let count_after_second_build = std::fs::read_dir(&algo_dir).unwrap().count();
     assert_eq!(count_after_first_build, count_after_second_build);
 
@@ -110,11 +110,11 @@ fn cross_file_dedup_reduces_store_size_and_rerun_is_idempotent() {
 fn identical_content_in_different_files_shares_one_chunk() {
     let source = make_source_tree("shared-chunk-src");
     let options = DigestOptions::default();
-    let (walked, tracker) = walk_tree(&source, options.algo).unwrap();
+    let (walked, mut tracker) = walk_tree(&source, options.algo).unwrap();
 
     let store_dir = unique_temp_dir("shared-chunk-store");
     let store = Store::new(store_dir.clone(), vec![]);
-    build_tree(&walked, &tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
+    build_tree(&walked, &mut tracker, &store, &options, &mut DirTreeBundle::new()).unwrap();
 
     let expected_chunk_id =
         cairn_core::hash::hash_bytes(HashAlgorithm::Sha256, b"duplicate content for dedup test");

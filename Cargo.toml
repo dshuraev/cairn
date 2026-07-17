@@ -1,5 +1,5 @@
 [workspace]
-members = ["cairn-core", "cairn-digest", "cairn-pkg", "cairn-dirtree"]
+members = ["cairn-core", "cairn-store", "cairn-digest", "cairn-pkg", "cairn-dirtree", "cairn-reconstruct"]
 resolver = "2"
 
 [workspace.package]

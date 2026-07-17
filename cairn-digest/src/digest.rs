@@ -2,7 +2,7 @@
 
 use crate::build::{build_tree, DigestOptions};
 use crate::error::DigestError;
-use crate::store::Store;
+use cairn_store::Store;
 use crate::walk::walk_tree;
 use cairn_core::bundle::DirTreeBundle;
 use cairn_core::id::DirTreeID;
@@ -27,9 +27,9 @@ pub fn digest(
     out_path: &Path,
     options: &DigestOptions,
 ) -> Result<DirTreeID, DigestError> {
-    let (walked, tracker) = walk_tree(src_dir, options.algo)?;
+    let (walked, mut tracker) = walk_tree(src_dir, options.algo)?;
     let mut bundle = DirTreeBundle::new();
-    let root_id = build_tree(&walked, &tracker, store, options, &mut bundle)?;
+    let root_id = build_tree(&walked, &mut tracker, store, options, &mut bundle)?;
 
     if let Some(parent) = out_path.parent() {
         if !parent.as_os_str().is_empty() {

@@ -1,6 +1,5 @@
 //! Error type for cairn-digest operations.
 
-use cairn_core::hash::Hash;
 use std::fmt;
 
 /// Errors that can occur while chunking, storing, or building dirtree objects.
@@ -10,13 +9,8 @@ pub enum DigestError {
     Io(std::io::Error),
     /// FastCDC chunking failed while reading a file.
     Chunking(cairn_core::fastcdc::v2020::Error),
-    /// A store object's content did not hash to its expected ID.
-    StoreCorrupt {
-        /// The ID the caller expected.
-        expected: Hash,
-        /// The ID actually computed from the content.
-        actual: Hash,
-    },
+    /// A store operation failed (read, write, or hash verification).
+    Store(cairn_store::StoreError),
 }
 
 impl fmt::Display for DigestError {
@@ -24,9 +18,7 @@ impl fmt::Display for DigestError {
         match self {
             DigestError::Io(e) => write!(f, "I/O error: {e}"),
             DigestError::Chunking(e) => write!(f, "chunking error: {e}"),
-            DigestError::StoreCorrupt { expected, actual } => {
-                write!(f, "hash mismatch: expected {expected}, got {actual}")
-            }
+            DigestError::Store(e) => write!(f, "store error: {e}"),
         }
     }
 }
@@ -36,7 +28,7 @@ impl std::error::Error for DigestError {
         match self {
             DigestError::Io(e) => Some(e),
             DigestError::Chunking(e) => Some(e),
-            DigestError::StoreCorrupt { .. } => None,
+            DigestError::Store(e) => Some(e),
         }
     }
 }
@@ -50,6 +42,12 @@ impl From<std::io::Error> for DigestError {
 impl From<cairn_core::fastcdc::v2020::Error> for DigestError {
     fn from(e: cairn_core::fastcdc::v2020::Error) -> Self {
         DigestError::Chunking(e)
+    }
+}
+
+impl From<cairn_store::StoreError> for DigestError {
+    fn from(e: cairn_store::StoreError) -> Self {
+        DigestError::Store(e)
     }
 }
 
@@ -71,12 +69,10 @@ mod tests {
     }
 
     #[test]
-    fn store_corrupt_display_mentions_both_hashes() {
-        let expected = Hash([1u8; 32]);
-        let actual = Hash([2u8; 32]);
-        let err = DigestError::StoreCorrupt { expected, actual };
-        let msg = err.to_string();
-        assert!(msg.contains(&expected.to_string()));
-        assert!(msg.contains(&actual.to_string()));
+    fn store_variant_display_is_non_empty() {
+        let err = DigestError::Store(cairn_store::StoreError::NotFound {
+            id: cairn_core::hash::Hash([1u8; 32]),
+        });
+        assert!(!err.to_string().is_empty());
     }
 }

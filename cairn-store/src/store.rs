@@ -1,6 +1,6 @@
 //! Content-addressed chunk store with dedup and atomic writes (§6.1, §8).
 
-use crate::error::DigestError;
+use crate::error::StoreError;
 use cairn_core::hash::{algo_tag_str, hash_bytes, Hash, HashAlgorithm};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -49,10 +49,10 @@ impl Store {
     /// a process killed mid-write never leaves a partial object in the store
     /// (§8). Tmp files are stored under the algorithm-specific subdirectory to
     /// avoid namespace pollution.
-    pub fn write(&self, id: &Hash, bytes: &[u8], algo: HashAlgorithm) -> Result<(), DigestError> {
+    pub fn write(&self, id: &Hash, bytes: &[u8], algo: HashAlgorithm) -> Result<(), StoreError> {
         let actual = hash_bytes(algo, bytes);
         if actual != *id {
-            return Err(DigestError::StoreCorrupt {
+            return Err(StoreError::HashMismatch {
                 expected: *id,
                 actual,
             });
@@ -77,6 +77,45 @@ impl Store {
         fs::rename(&tmp_path, Self::object_path(&self.primary, algo, id))?;
         Ok(())
     }
+
+    /// Reads and hash-verifies the object with `id` under `algo` (I2): checks
+    /// the primary store then each seed (in order, mirroring `contains`),
+    /// reads the first hit, recomputes `H(bytes)` under `algo`, and errors if
+    /// it doesn't match `id`. Returns `StoreError::NotFound` if `id` is absent
+    /// from every configured store.
+    pub fn read(&self, algo: HashAlgorithm, id: &Hash) -> Result<Vec<u8>, StoreError> {
+        // Check primary store first
+        let primary_path = Self::object_path(&self.primary, algo, id);
+        if primary_path.exists() {
+            let bytes = fs::read(&primary_path)?;
+            let actual = hash_bytes(algo, &bytes);
+            if actual != *id {
+                return Err(StoreError::HashMismatch {
+                    expected: *id,
+                    actual,
+                });
+            }
+            return Ok(bytes);
+        }
+
+        // Check seed stores in order
+        for seed in &self.seeds {
+            let seed_path = Self::object_path(seed, algo, id);
+            if seed_path.exists() {
+                let bytes = fs::read(&seed_path)?;
+                let actual = hash_bytes(algo, &bytes);
+                if actual != *id {
+                    return Err(StoreError::HashMismatch {
+                        expected: *id,
+                        actual,
+                    });
+                }
+                return Ok(bytes);
+            }
+        }
+
+        Err(StoreError::NotFound { id: *id })
+    }
 }
 
 #[cfg(test)]
@@ -89,7 +128,7 @@ mod tests {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let dir = std::env::temp_dir().join(format!("cairn-digest-store-test-{label}-{nanos}"));
+        let dir = std::env::temp_dir().join(format!("cairn-store-test-{label}-{nanos}"));
         fs::create_dir_all(&dir).unwrap();
         dir
     }
@@ -241,6 +280,70 @@ mod tests {
         // Verify they have different directory components
         assert!(sha256_path.to_string_lossy().contains("sha256"));
         assert!(blake3_path.to_string_lossy().contains("blake3"));
+
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn read_returns_bytes_matching_written_id() {
+        let dir = unique_temp_dir("read-write");
+        let store = Store::new(dir.join("primary"), vec![]);
+        let bytes = b"test content";
+        let id = hash_bytes(HashAlgorithm::Sha256, bytes);
+
+        store.write(&id, bytes, HashAlgorithm::Sha256).unwrap();
+        let read_bytes = store.read(HashAlgorithm::Sha256, &id).unwrap();
+
+        assert_eq!(read_bytes, bytes);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn read_detects_hash_mismatch() {
+        let dir = unique_temp_dir("read-mismatch");
+        let primary = dir.join("primary");
+        let store = Store::new(primary.clone(), vec![]);
+        let bytes = b"original";
+        let id = hash_bytes(HashAlgorithm::Sha256, bytes);
+
+        store.write(&id, bytes, HashAlgorithm::Sha256).unwrap();
+
+        // Corrupt the file by writing different bytes directly
+        let path = Store::object_path(&primary, HashAlgorithm::Sha256, &id);
+        fs::write(&path, b"corrupted").unwrap();
+
+        let result = store.read(HashAlgorithm::Sha256, &id);
+        assert!(matches!(result, Err(StoreError::HashMismatch { .. })));
+
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn read_checks_seed_store_in_order() {
+        let dir = unique_temp_dir("read-seed");
+        let seed_dir = dir.join("seed");
+        let primary_dir = dir.join("primary");
+        let seed_store = Store::new(seed_dir.clone(), vec![]);
+        let bytes = b"seeded content";
+        let id = hash_bytes(HashAlgorithm::Sha256, bytes);
+
+        seed_store.write(&id, bytes, HashAlgorithm::Sha256).unwrap();
+
+        let store = Store::new(primary_dir, vec![seed_dir]);
+        let read_bytes = store.read(HashAlgorithm::Sha256, &id).unwrap();
+
+        assert_eq!(read_bytes, bytes);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn read_returns_not_found_for_absent_id() {
+        let dir = unique_temp_dir("read-not-found");
+        let store = Store::new(dir.join("primary"), vec![]);
+        let missing_id = Hash([0x99u8; 32]);
+
+        let result = store.read(HashAlgorithm::Sha256, &missing_id);
+        assert!(matches!(result, Err(StoreError::NotFound { .. })));
 
         fs::remove_dir_all(&dir).unwrap();
     }

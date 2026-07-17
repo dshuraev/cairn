@@ -11,7 +11,7 @@ use crate::chunk::{chunk_file, ChunkConfig};
 use crate::error::DigestError;
 use crate::hardlink::{HardlinkTracker, Inode};
 use crate::metadata::build_metadata;
-use crate::store::Store;
+use cairn_store::Store;
 use crate::walk::{RawKind, WalkEntry};
 use cairn_core::bundle::{DirTreeBundle, ObjectKind};
 use cairn_core::hash::HashAlgorithm;
@@ -51,7 +51,7 @@ fn inode_of(entry: &WalkEntry) -> Inode {
 /// source root); only its `children` become `Node`s in the returned tree.
 pub fn build_tree(
     walked: &WalkEntry,
-    tracker: &HardlinkTracker,
+    tracker: &mut HardlinkTracker,
     store: &Store,
     options: &DigestOptions,
     bundle: &mut DirTreeBundle,
@@ -62,7 +62,7 @@ pub fn build_tree(
 
 fn build_dir(
     dir_entry: &WalkEntry,
-    tracker: &HardlinkTracker,
+    tracker: &mut HardlinkTracker,
     store: &Store,
     options: &DigestOptions,
     file_index_cache: &mut HashMap<Inode, FileIndexID>,
@@ -92,7 +92,7 @@ fn build_dir(
 /// into `store`.
 fn build_node(
     entry: &WalkEntry,
-    tracker: &HardlinkTracker,
+    tracker: &mut HardlinkTracker,
     store: &Store,
     options: &DigestOptions,
     file_index_cache: &mut HashMap<Inode, FileIndexID>,
@@ -105,9 +105,6 @@ fn build_node(
     bundle.insert(ObjectKind::Metadata, metadata_id.0, encoded_metadata);
 
     let inode = inode_of(entry);
-    // Only regular files are ever observed by the tracker (walk::walk_entry),
-    // so this is always None for Dir/Symlink/Device/Fifo/Socket kinds.
-    let link_group = tracker.link_group(inode);
 
     let kind = match &entry.kind {
         RawKind::File => {
@@ -128,6 +125,11 @@ fn build_node(
                     file_index_id
                 }
             };
+
+            // Register this file's content with the tracker to compute stable LinkGroupID
+            // from file content rather than inode (for I1 invariant compliance)
+            let _link_group_for_future_use = tracker.register_file_index(inode, file_index_id);
+
             NodeKind::File { file_index_id }
         }
         RawKind::Dir => {
@@ -143,6 +145,16 @@ fn build_node(
         },
         RawKind::Fifo => NodeKind::Fifo,
         RawKind::Socket => NodeKind::Socket,
+    };
+
+    // Compute LinkGroupID from file content for hardlinked files (I1 invariant)
+    // For non-file nodes and standalone files, this returns None
+    let link_group = if let RawKind::File = &entry.kind {
+        // For files, look up by inode to get the FileIndex (cached or computed above)
+        file_index_cache.get(&inode)
+            .and_then(|file_index_id| tracker.register_file_index(inode, *file_index_id))
+    } else {
+        None
     };
 
     Ok(Node::new(entry.name.clone(), metadata_id, link_group, kind))
@@ -165,11 +177,11 @@ mod tests {
         dir
     }
 
-    /// Directly exercises `build_node`'s wiring of `tracker.link_group` for two
+    /// Directly exercises `build_node`'s wiring of `tracker.register_file_index` for two
     /// hardlinked paths in different subdirectories, without needing to decode
     /// anything back out of the store. This is the property the walk/build
     /// split (Fix 1) exists to guarantee: both nodes must carry the same
-    /// non-`None` link group.
+    /// non-`None` link group (derived from file content, not inode, for I1 compliance).
     #[test]
     fn hardlinked_paths_get_matching_link_group_in_built_nodes() {
         let root = unique_temp_dir("hardlink-nodes");
@@ -179,7 +191,7 @@ mod tests {
         std::fs::hard_link(root.join("a/shared.bin"), root.join("b/shared.bin")).unwrap();
 
         let options = DigestOptions::default();
-        let (root_entry, tracker) = walk_tree(&root, options.algo).unwrap();
+        let (root_entry, mut tracker) = walk_tree(&root, options.algo).unwrap();
         let store_dir = unique_temp_dir("hardlink-store");
         let store = Store::new(store_dir.clone(), vec![]);
         let mut cache = HashMap::new();
@@ -190,8 +202,8 @@ mod tests {
         let file_a = &dir_a.children[0];
         let file_b = &dir_b.children[0];
 
-        let node_a = build_node(file_a, &tracker, &store, &options, &mut cache, &mut bundle).unwrap();
-        let node_b = build_node(file_b, &tracker, &store, &options, &mut cache, &mut bundle).unwrap();
+        let node_a = build_node(file_a, &mut tracker, &store, &options, &mut cache, &mut bundle).unwrap();
+        let node_b = build_node(file_b, &mut tracker, &store, &options, &mut cache, &mut bundle).unwrap();
 
         assert!(node_a.link_group.is_some());
         assert_eq!(node_a.link_group, node_b.link_group);

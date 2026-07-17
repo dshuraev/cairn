@@ -7,7 +7,7 @@
 
 use cairn_core::encode::Encoder;
 use cairn_core::hash::{hash_bytes, HashAlgorithm};
-use cairn_core::id::LinkGroupID;
+use cairn_core::id::{FileIndexID, LinkGroupID};
 use std::collections::HashMap;
 
 /// A regular file's identity for hardlink purposes.
@@ -24,6 +24,10 @@ pub struct Inode {
 pub struct HardlinkTracker {
     counts: HashMap<Inode, u32>,
     algo: HashAlgorithm,
+    /// Maps FileIndexID to LinkGroupID for hardlinked inodes.
+    /// This ensures LinkGroupID is derived from content, not inode numbers,
+    /// making it stable across digest runs (satisfying I1 invariant).
+    file_index_to_link_group: HashMap<FileIndexID, LinkGroupID>,
 }
 
 impl HardlinkTracker {
@@ -32,6 +36,7 @@ impl HardlinkTracker {
         Self {
             counts: HashMap::new(),
             algo,
+            file_index_to_link_group: HashMap::new(),
         }
     }
 
@@ -41,11 +46,45 @@ impl HardlinkTracker {
         *self.counts.entry(inode).or_insert(0) += 1;
     }
 
+    /// Registers a FileIndex for a hardlinked inode and derives/caches its LinkGroupID.
+    /// Returns the LinkGroupID for this file_index_id if the inode is hardlinked (seen >1 time),
+    /// or None for standalone files.
+    ///
+    /// For hardlinked files, LinkGroupID is derived from the FileIndex hash (file content),
+    /// not the inode number. This makes LinkGroupID stable across digest runs, satisfying
+    /// the I1 invariant: digest(reconstruct(bundle, store)) == bundle.root.
+    pub fn register_file_index(
+        &mut self,
+        inode: Inode,
+        file_index_id: FileIndexID,
+    ) -> Option<LinkGroupID> {
+        if *self.counts.get(&inode)? < 2 {
+            return None;
+        }
+
+        // Check if we've already computed LinkGroupID for this FileIndex
+        if let Some(link_group) = self.file_index_to_link_group.get(&file_index_id) {
+            return Some(*link_group);
+        }
+
+        // Derive LinkGroupID from file content (FileIndex), not inode
+        let mut e = Encoder::new();
+        e.write_bytes(b"linkgroup");
+        e.write_hash(&file_index_id.0);
+        let link_group_id = LinkGroupID(hash_bytes(self.algo, &e.into_bytes()));
+
+        self.file_index_to_link_group.insert(file_index_id, link_group_id);
+        Some(link_group_id)
+    }
+
     /// This inode's `LinkGroupID`, if it was observed more than once during the
     /// walk this tracker was built from, or `None` for a standalone file.
     ///
-    /// Derived per §5.2 as `H("linkgroup" || device || inode)`; the derivation
-    /// only needs to be consistent within a single run, not stable across runs.
+    /// **DEPRECATED**: Use `register_file_index()` instead, which derives LinkGroupID
+    /// from file content for I1 invariant compliance.
+    ///
+    /// This old method derived from `H("linkgroup" || device || inode)`, which changes
+    /// across digest runs and violates I1 when hardlinks are involved.
     pub fn link_group(&self, inode: Inode) -> Option<LinkGroupID> {
         if *self.counts.get(&inode)? < 2 {
             return None;
