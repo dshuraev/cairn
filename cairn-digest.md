@@ -33,7 +33,6 @@ Options:
   --max-chunk <BYTES>       FastCDC maximum chunk size   (default: 256KiB)
   --hash <ALGO>             cryptographic hash algorithm  (default: sha256; only
                             cryptographically secure algorithms are permitted — see §7)
-  --threads <N>             parallelism for chunking/hashing independent files
 ```
 
 Output: exit 0 and a dirtree object written to `--out`, plus new chunks written into

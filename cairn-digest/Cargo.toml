@@ -7,5 +7,12 @@ authors.workspace = true
 [dependencies]
 cairn-core = { path = "../cairn-core" }
 xattr = "1.6.1"
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"
+
+[[bin]]
+name = "cairn-digest"
+path = "src/bin/cairn_digest.rs"
 
 [dev-dependencies]
+tempfile = "3"

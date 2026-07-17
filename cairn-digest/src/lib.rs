@@ -22,3 +22,4 @@ pub mod walk;
 pub use build::DigestOptions;
 pub use digest::digest;
 pub use error::DigestError;
+pub use store::Store;
