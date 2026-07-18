@@ -82,20 +82,16 @@ fn render_ls_txt(nodes: &[ResolvedNode]) -> String {
     let mut output = String::new();
 
     // Header
-    output.push_str("path");
-    output.push_str(&" ".repeat(max_path_len - 4 + 2));
-    output.push_str("type");
-    output.push_str(&" ".repeat(max_kind_len - 4 + 2));
+    output.push_str(&format!("{:<width$}  ", "path", width = max_path_len));
+    output.push_str(&format!("{:<width$}  ", "type", width = max_kind_len));
     output.push_str("mode  uid    gid    chunks\n");
 
     // Rows
     for node in nodes {
-        output.push_str(&node.path);
-        output.push_str(&" ".repeat(max_path_len - node.path.len() + 2));
+        output.push_str(&format!("{:<width$}  ", node.path, width = max_path_len));
 
         let kind_str = kind_name(&node.kind);
-        output.push_str(kind_str);
-        output.push_str(&" ".repeat(max_kind_len - kind_str.len() + 2));
+        output.push_str(&format!("{:<width$}  ", kind_str, width = max_kind_len));
 
         let mode = mask_mode(node.metadata.mode());
         output.push_str(&format!("{:04o}", mode));

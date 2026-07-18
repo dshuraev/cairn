@@ -90,7 +90,6 @@ pub fn resolve(
     let mut nodes = Vec::new();
     let root_bytes = bundle
         .get(&root.0)
-        .map(|(kind, bytes)| (kind, bytes))
         .ok_or_else(|| WalkError::MissingObject {
             id: root.0.to_string(),
             referenced_by: "root".to_string(),
@@ -132,7 +131,6 @@ fn resolve_dir(
         // Resolve metadata.
         let metadata_bytes = bundle
             .get(&node.metadata_id.0)
-            .map(|(kind, bytes)| (kind, bytes))
             .ok_or_else(|| WalkError::MissingObject {
                 id: node.metadata_id.0.to_string(),
                 referenced_by: format!("node at path {}", node_path),
@@ -158,7 +156,6 @@ fn resolve_dir(
             NodeKind::File { file_index_id } => {
                 let file_index_bytes = bundle
                     .get(&file_index_id.0)
-                    .map(|(kind, bytes)| (kind, bytes))
                     .ok_or_else(|| WalkError::MissingObject {
                         id: file_index_id.0.to_string(),
                         referenced_by: format!("file at path {}", node_path),
@@ -187,7 +184,6 @@ fn resolve_dir(
             NodeKind::Dir { children_id } => {
                 let children_bytes = bundle
                     .get(&children_id.0)
-                    .map(|(kind, bytes)| (kind, bytes))
                     .ok_or_else(|| WalkError::MissingObject {
                         id: children_id.0.to_string(),
                         referenced_by: format!("dir at path {}", node_path),
@@ -237,7 +233,6 @@ fn resolve_dir(
         if let NodeKind::Dir { children_id } = &node.kind {
             let children_bytes = bundle
                 .get(&children_id.0)
-                .map(|(kind, bytes)| (kind, bytes))
                 .ok_or_else(|| WalkError::MissingObject {
                     id: children_id.0.to_string(),
                     referenced_by: format!("dir at path {}", node_path),

@@ -269,4 +269,14 @@ mod tests {
         // Also verify that we got all the expected objects
         assert_eq!(decoded.len(), 6);
     }
+
+    #[test]
+    fn objectkind_tag_matches_constants() {
+        // Cross-check: verify that ObjectKind::tag() returns values matching
+        // the constants defined in kind.rs. This ensures the two schemes stay
+        // in sync for domain separation in canonical encodings (§4.1).
+        assert_eq!(ObjectKind::DirTree.tag(), DIRTREE_KIND_TAG);
+        assert_eq!(ObjectKind::Metadata.tag(), METADATA_KIND_TAG);
+        assert_eq!(ObjectKind::FileIndex.tag(), FILEINDEX_KIND_TAG);
+    }
 }
