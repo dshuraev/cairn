@@ -4,6 +4,7 @@ use crate::decode::{DecodeError, Decoder};
 use crate::encode::Encoder;
 use crate::hash::{hash_bytes, HashAlgorithm};
 use crate::id::MetadataID;
+use crate::kind::METADATA_KIND_TAG;
 
 /// Permission bits, ownership, and extended attributes for a node.
 ///
@@ -32,9 +33,11 @@ impl Metadata {
         }
     }
 
-    /// Encodes this object canonically (§4.4).
+    /// Encodes this object canonically (§4.4): `u8 object_kind_tag`, then
+    /// `u32 mode`, `uid`, `gid`, `xattr_count`, and the xattrs themselves.
     pub fn encode_canonical(&self) -> Vec<u8> {
         let mut e = Encoder::new();
+        e.write_u8(METADATA_KIND_TAG);
         e.write_u32(self.mode);
         e.write_u32(self.uid);
         e.write_u32(self.gid);
@@ -52,9 +55,13 @@ impl Metadata {
     }
 
     /// Decodes a `Metadata` from its canonical encoding (§4.4), the inverse of
-    /// [`Metadata::encode_canonical`]. Rejects trailing bytes.
+    /// [`Metadata::encode_canonical`]. Rejects trailing bytes or mismatched kind tag.
     pub fn decode_canonical(bytes: &[u8]) -> Result<Self, DecodeError> {
         let mut d = Decoder::new(bytes);
+        let kind_tag = d.read_u8()?;
+        if kind_tag != METADATA_KIND_TAG {
+            return Err(DecodeError::InvalidTag(kind_tag));
+        }
         let mode = d.read_u32()?;
         let uid = d.read_u32()?;
         let gid = d.read_u32()?;
@@ -106,7 +113,7 @@ mod tests {
     #[test]
     fn empty_xattrs_encode_with_zero_count_and_no_trailing_bytes() {
         let m = Metadata::new(0o644, 1000, 1000, vec![]);
-        let mut expected = vec![];
+        let mut expected = vec![METADATA_KIND_TAG];
         expected.extend_from_slice(&0o644u32.to_le_bytes());
         expected.extend_from_slice(&1000u32.to_le_bytes());
         expected.extend_from_slice(&1000u32.to_le_bytes());
@@ -149,5 +156,47 @@ mod tests {
             ],
         );
         assert_eq!(m.xattrs.len(), 1);
+    }
+
+    #[test]
+    fn decode_rejects_dirtree_encoded_bytes() {
+        // Verify that Metadata::decode_canonical rejects DirTree-encoded bytes
+        // with a kind-tag mismatch, not a silent misparse.
+        use crate::model::DirTree;
+
+        let dirtree = DirTree::new(vec![]);
+        let dirtree_bytes = dirtree.encode_canonical();
+
+        let result = Metadata::decode_canonical(&dirtree_bytes);
+        assert!(
+            result.is_err(),
+            "Metadata::decode_canonical should reject DirTree bytes"
+        );
+        assert!(
+            matches!(result, Err(DecodeError::InvalidTag(tag)) if tag == 0),
+            "Expected InvalidTag(0) for DirTree tag, got {:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn decode_rejects_fileindex_encoded_bytes() {
+        // Verify that Metadata::decode_canonical rejects FileIndex-encoded bytes
+        // with a kind-tag mismatch, not a silent misparse.
+        use crate::model::FileIndex;
+
+        let fileindex = FileIndex::new(vec![]);
+        let fileindex_bytes = fileindex.encode_canonical();
+
+        let result = Metadata::decode_canonical(&fileindex_bytes);
+        assert!(
+            result.is_err(),
+            "Metadata::decode_canonical should reject FileIndex bytes"
+        );
+        assert!(
+            matches!(result, Err(DecodeError::InvalidTag(tag)) if tag == 2),
+            "Expected InvalidTag(2) for FileIndex tag, got {:?}",
+            result
+        );
     }
 }

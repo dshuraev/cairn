@@ -48,17 +48,21 @@ canonical encoding (§4). All hashes are 32-byte digests (SHA-256 by default).
 Chunk
   bytes                     — raw content, arbitrary length within [min-chunk, max-chunk]
   id = H(bytes)
+  NOTE: Chunk ID is intentionally the hash of raw bytes only, with no kind
+        discriminator, to preserve the property that a chunk's identity is exactly
+        the hash of its file content. This is by design; other object kinds use a
+        prepended kind tag to ensure domain separation (see §4.1).
 
 FileIndex
   chunks: [ChunkID, ...]    — ORDERED (concatenation order), fixed-width 32B entries
-  id = H(canonical(chunks))
+  id = H(canonical(chunks)), where canonical includes a kind-discriminator tag
 
 Metadata
   mode:  u32                — permission bits + type bits
   uid:   u32
   gid:   u32
   xattrs: [(name: string, value: bytes), ...]   — sorted by name, no duplicates
-  id = H(canonical(mode, uid, gid, xattrs))
+  id = H(canonical(mode, uid, gid, xattrs)), where canonical includes a kind-discriminator tag
   NOTE: mtime/atime/ctime are intentionally excluded (see §6.4)
 
 Node                         — one uniform shape for every directory entry
@@ -77,7 +81,7 @@ NodeKind (tagged union; exactly one payload per Node)
 
 DirTree
   nodes: [Node, ...]        — sorted by name (§4.3)
-  id = H(canonical(nodes))
+  id = H(canonical(nodes)), where canonical includes a kind-discriminator tag
 ```
 
 `LinkGroupID` is a stable identifier derived from the source inode number at walk
@@ -94,7 +98,20 @@ Every object above must serialize to **exactly one** byte sequence for a given l
 value — two semantically identical objects must hash identically, or dedup silently
 breaks. Rules:
 
-### 4.1 Primitives
+### 4.1 Primitives and domain separation
+
+- **Domain separation**: Every independently-hashed object kind (`FileIndex`,
+  `Metadata`, `DirTree` — explicitly *not* `Chunk`, per §3) must begin its canonical
+  encoding with a fixed `u8 object_kind_tag` unique to that object kind. This tag
+  provides domain separation between object kinds that share a single content-addressed
+  hash-ID namespace: two objects of different kinds must never produce the same
+  canonical-encoding bytes, regardless of content. The tag values used are:
+  - `DirTree`: 0
+  - `Metadata`: 1
+  - `FileIndex`: 2
+  
+  A decoder must read and validate this leading tag byte; a mismatch must be treated
+  as a decoding error, not a silent misparse.
 
 - Integers: fixed-width, little-endian, explicit width per field (u32 = 4 bytes, no
   variable-length ints anywhere in the format).
@@ -106,10 +123,13 @@ breaks. Rules:
 
 ### 4.2 FileIndex encoding
 
-`u32 chunk_count` followed by `chunk_count × 32-byte ChunkID`, concatenated in order.
-No delimiters needed — fixed width makes this unambiguous.
+`u8 object_kind_tag` (value 2), followed by `u32 chunk_count`, followed by
+`chunk_count × 32-byte ChunkID`, concatenated in order. No delimiters needed — fixed
+width makes this unambiguous.
 
 ### 4.3 DirTree encoding and sort order
+
+DirTree begins with `u8 object_kind_tag` (value 0), followed by `u32 node_count`.
 
 Entries are sorted by `name` using **git's tree-sort convention**: compare names as if
 every `Dir`-kind entry's name has an implicit trailing `/` appended for comparison
@@ -124,6 +144,9 @@ u8  has_link_group, [32B link_group_id if present],
 <kind-specific payload>
 ```
 
+(The per-node `kind_tag` here tags the `NodeKind` variant; the DirTree-level
+`object_kind_tag` is a separate field for object-level domain separation.)
+
 Kind-specific payload:
 
 - `File`: 32B file_index_id
@@ -134,9 +157,9 @@ Kind-specific payload:
 
 ### 4.4 Metadata encoding
 
-`u32 mode, u32 uid, u32 gid, u32 xattr_count`, followed by
-`xattr_count × (u32 name_len, name, u32 value_len, value)`, with xattrs sorted by name
-bytes ascending (plain byte sort — no directory-suffix rule applies here).
+`u8 object_kind_tag` (value 1), followed by `u32 mode, u32 uid, u32 gid, u32 xattr_count`,
+followed by `xattr_count × (u32 name_len, name, u32 value_len, value)`, with xattrs
+sorted by name bytes ascending (plain byte sort — no directory-suffix rule applies here).
 
 ## 5. Algorithm
 

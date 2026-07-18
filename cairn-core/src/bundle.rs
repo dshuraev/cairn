@@ -11,6 +11,7 @@ use crate::decode::{DecodeError, Decoder};
 use crate::encode::Encoder;
 use crate::hash::{Hash, HashAlgorithm};
 use crate::id::DirTreeID;
+use crate::kind::{DIRTREE_KIND_TAG, FILEINDEX_KIND_TAG, METADATA_KIND_TAG};
 use std::collections::HashMap;
 
 /// Which §3 object a bundle entry's bytes decode as.
@@ -27,17 +28,17 @@ pub enum ObjectKind {
 impl ObjectKind {
     fn tag(self) -> u8 {
         match self {
-            ObjectKind::DirTree => 0,
-            ObjectKind::Metadata => 1,
-            ObjectKind::FileIndex => 2,
+            ObjectKind::DirTree => DIRTREE_KIND_TAG,
+            ObjectKind::Metadata => METADATA_KIND_TAG,
+            ObjectKind::FileIndex => FILEINDEX_KIND_TAG,
         }
     }
 
     fn from_tag(tag: u8) -> Result<Self, DecodeError> {
         match tag {
-            0 => Ok(ObjectKind::DirTree),
-            1 => Ok(ObjectKind::Metadata),
-            2 => Ok(ObjectKind::FileIndex),
+            DIRTREE_KIND_TAG => Ok(ObjectKind::DirTree),
+            METADATA_KIND_TAG => Ok(ObjectKind::Metadata),
+            FILEINDEX_KIND_TAG => Ok(ObjectKind::FileIndex),
             other => Err(DecodeError::InvalidTag(other)),
         }
     }

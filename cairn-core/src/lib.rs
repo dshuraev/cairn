@@ -18,6 +18,7 @@ pub mod decode;
 pub mod encode;
 pub mod hash;
 pub mod id;
+pub mod kind;
 pub mod model;
 pub mod sort;
 

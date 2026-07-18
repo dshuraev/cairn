@@ -66,7 +66,8 @@ mod tests {
 
         let meta = fs::symlink_metadata(&path).unwrap();
         let built = build_metadata(&path, &meta).unwrap();
-        assert_eq!(built.encode_canonical()[0..4], 0o100640u32.to_le_bytes());
+        // encode_canonical now has a tag byte at [0], mode is at [1..5]
+        assert_eq!(built.encode_canonical()[1..5], 0o100640u32.to_le_bytes());
 
         fs::remove_dir_all(&dir).unwrap();
     }
