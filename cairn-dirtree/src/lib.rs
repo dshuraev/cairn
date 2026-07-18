@@ -10,5 +10,6 @@
 //! `DirTreeBundle::decode_canonical`, `DirTree::decode_canonical`, etc.); this crate
 //! adds the walk logic (`walk::resolve`) and formatting (`render::*`) layer.
 
+pub mod chunks;
 pub mod render;
 pub mod walk;

@@ -836,6 +836,70 @@ fn render_summary_json(summary: &Summary) -> String {
 }
 
 // ==============================================================================
+// CHUNKS SUBCOMMAND
+// ==============================================================================
+
+#[derive(Debug, Serialize)]
+struct ChunksJsonOutput {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    new: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    old: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    common: Option<Vec<String>>,
+}
+
+/// Renders `chunks` output (chunk set differences).
+pub fn render_chunks(
+    result: &crate::chunks::ChunksResult,
+    algo: HashAlgorithm,
+    format: OutputFormat,
+) -> String {
+    match format {
+        OutputFormat::Txt => render_chunks_txt(result, algo),
+        OutputFormat::Json => render_chunks_json(result, algo),
+    }
+}
+
+fn render_chunks_txt(result: &crate::chunks::ChunksResult, algo: HashAlgorithm) -> String {
+    let mut output = String::new();
+
+    for (label, chunks_opt) in &[
+        ("new", &result.new),
+        ("old", &result.old),
+        ("common", &result.common),
+    ] {
+        if let Some(chunks) = chunks_opt {
+            output.push_str(label);
+            output.push_str(":\n");
+            for chunk in chunks {
+                output.push_str(&id_str(algo, &chunk.0));
+                output.push('\n');
+            }
+        }
+    }
+
+    output
+}
+
+fn render_chunks_json(result: &crate::chunks::ChunksResult, algo: HashAlgorithm) -> String {
+    let new = result.new.as_ref().map(|chunks| {
+        chunks.iter().map(|c| id_str(algo, &c.0)).collect()
+    });
+
+    let old = result.old.as_ref().map(|chunks| {
+        chunks.iter().map(|c| id_str(algo, &c.0)).collect()
+    });
+
+    let common = result.common.as_ref().map(|chunks| {
+        chunks.iter().map(|c| id_str(algo, &c.0)).collect()
+    });
+
+    let output = ChunksJsonOutput { new, old, common };
+    serde_json::to_string_pretty(&output).unwrap_or_default()
+}
+
+// ==============================================================================
 // HELPERS
 // ==============================================================================
 
@@ -1188,6 +1252,104 @@ mod tests {
         assert!(txt_user.contains("user.foo"));
         assert!(txt_user.contains("user.bar"));
         assert!(!txt_user.contains("system.attr"));
+    }
+
+    #[test]
+    fn render_chunks_txt_with_all_sets() {
+        let algo = HashAlgorithm::Sha256;
+        let chunk1 = ChunkID(hash_bytes(algo, b"chunk1"));
+        let chunk2 = ChunkID(hash_bytes(algo, b"chunk2"));
+        let chunk3 = ChunkID(hash_bytes(algo, b"chunk3"));
+
+        let result = crate::chunks::ChunksResult {
+            new: Some(vec![chunk1]),
+            old: Some(vec![chunk2]),
+            common: Some(vec![chunk3]),
+        };
+
+        let txt = render_chunks(&result, algo, OutputFormat::Txt);
+
+        assert!(txt.contains("new:"));
+        assert!(txt.contains("old:"));
+        assert!(txt.contains("common:"));
+        // Each section should have at least one hash
+        let lines: Vec<&str> = txt.lines().collect();
+        assert!(lines.iter().any(|l| l.contains("sha256:")));
+    }
+
+    #[test]
+    fn render_chunks_txt_requested_but_empty() {
+        let algo = HashAlgorithm::Sha256;
+
+        let result = crate::chunks::ChunksResult {
+            new: Some(vec![]),
+            old: Some(vec![]),
+            common: Some(vec![]),
+        };
+
+        let txt = render_chunks(&result, algo, OutputFormat::Txt);
+
+        // Should still print headers even though sets are empty
+        assert!(txt.contains("new:"));
+        assert!(txt.contains("old:"));
+        assert!(txt.contains("common:"));
+    }
+
+    #[test]
+    fn render_chunks_txt_none_fields_omitted() {
+        let algo = HashAlgorithm::Sha256;
+        let chunk1 = ChunkID(hash_bytes(algo, b"chunk1"));
+
+        let result = crate::chunks::ChunksResult {
+            new: Some(vec![chunk1]),
+            old: None,
+            common: None,
+        };
+
+        let txt = render_chunks(&result, algo, OutputFormat::Txt);
+
+        assert!(txt.contains("new:"));
+        assert!(!txt.contains("old:"));
+        assert!(!txt.contains("common:"));
+    }
+
+    #[test]
+    fn render_chunks_json_skip_serializing_if_none() {
+        let algo = HashAlgorithm::Sha256;
+        let chunk1 = ChunkID(hash_bytes(algo, b"chunk1"));
+
+        let result = crate::chunks::ChunksResult {
+            new: Some(vec![chunk1]),
+            old: None,
+            common: None,
+        };
+
+        let json_str = render_chunks(&result, algo, OutputFormat::Json);
+        let json: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+        // None fields should not be present as keys at all
+        assert!(json.get("new").is_some());
+        assert!(json.get("old").is_none());
+        assert!(json.get("common").is_none());
+    }
+
+    #[test]
+    fn render_chunks_json_empty_sets_included() {
+        let algo = HashAlgorithm::Sha256;
+
+        let result = crate::chunks::ChunksResult {
+            new: Some(vec![]),
+            old: Some(vec![]),
+            common: Some(vec![]),
+        };
+
+        let json_str = render_chunks(&result, algo, OutputFormat::Json);
+        let json: serde_json::Value = serde_json::from_str(&json_str).unwrap();
+
+        // Empty arrays should be present (requested but empty)
+        assert_eq!(json["new"].as_array().map(|a| a.len()), Some(0));
+        assert_eq!(json["old"].as_array().map(|a| a.len()), Some(0));
+        assert_eq!(json["common"].as_array().map(|a| a.len()), Some(0));
     }
 
     #[test]

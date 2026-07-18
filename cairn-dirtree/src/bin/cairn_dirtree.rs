@@ -5,6 +5,7 @@
 
 use anyhow::Context;
 use cairn_core::bundle::DirTreeBundle;
+use cairn_dirtree::chunks;
 use cairn_dirtree::render::{self, OutputFormat};
 use cairn_dirtree::walk;
 use clap::{Parser, Subcommand, ValueEnum};
@@ -122,6 +123,25 @@ enum Command {
         #[arg(short, long, required = true)]
         input: PathBuf,
     },
+
+    /// Compare chunks between source and target bundles
+    Chunks {
+        /// Source bundle path (repeatable, at least one required)
+        #[arg(short, long = "source", required = true)]
+        sources: Vec<PathBuf>,
+        /// Target bundle path (exactly one, required)
+        #[arg(short, long = "target", required = true)]
+        target: PathBuf,
+        /// Include new chunks (in target but not in any source)
+        #[arg(long)]
+        new: bool,
+        /// Include old chunks (in sources but not in target)
+        #[arg(long)]
+        old: bool,
+        /// Include common chunks (in both sources and target)
+        #[arg(long)]
+        common: bool,
+    },
 }
 
 /// Reads and decodes a dirtree bundle from a file.
@@ -209,6 +229,46 @@ fn run(cli: Cli) -> anyhow::Result<()> {
             println!("{}", output);
             Ok(())
         }
+
+        Command::Chunks {
+            sources,
+            target,
+            new,
+            old,
+            common,
+        } => {
+            // Resolve target
+            let (target_root, target_algo, target_bundle) = read_bundle(&target)?;
+
+            // Resolve sources
+            let mut resolved_sources = Vec::new();
+            for source_path in sources {
+                let (root, algo, bundle) = read_bundle(&source_path)?;
+                resolved_sources.push((root, algo, bundle, source_path.clone()));
+            }
+
+            // Determine requested sets (default to new if none specified)
+            let want = if !new && !old && !common {
+                chunks::RequestedSets {
+                    new: true,
+                    old: false,
+                    common: false,
+                }
+            } else {
+                chunks::RequestedSets { new, old, common }
+            };
+
+            // Compute chunks
+            let result = chunks::compute(
+                &resolved_sources,
+                &(target_root, target_algo, target_bundle, target.clone()),
+                want,
+            )?;
+
+            let output = render::render_chunks(&result, target_algo, format);
+            println!("{}", output);
+            Ok(())
+        }
     }
 }
 
@@ -229,7 +289,7 @@ mod tests {
         assert!(result.is_ok());
         let cli = result.unwrap();
         assert_eq!(cli.output.to_format(), OutputFormat::Txt);
-        matches!(cli.command, Command::Ls { .. });
+        assert!(matches!(cli.command, Command::Ls { .. }));
     }
 
     #[test]
@@ -243,7 +303,7 @@ mod tests {
         ]);
         assert!(result.is_ok());
         let cli = result.unwrap();
-        matches!(cli.command, Command::Stat { .. });
+        assert!(matches!(cli.command, Command::Stat { .. }));
     }
 
     #[test]
@@ -374,6 +434,80 @@ mod tests {
             "--input",
             "/tmp/bundle",
         ]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn cli_parses_chunks_with_single_source() {
+        let result = Cli::try_parse_from(vec![
+            "cairn-dirtree",
+            "chunks",
+            "-s",
+            "/tmp/source",
+            "-t",
+            "/tmp/target",
+        ]);
+        assert!(result.is_ok());
+        let cli = result.unwrap();
+        assert!(matches!(cli.command, Command::Chunks { .. }));
+    }
+
+    #[test]
+    fn cli_parses_chunks_with_multiple_sources() {
+        let result = Cli::try_parse_from(vec![
+            "cairn-dirtree",
+            "chunks",
+            "-s",
+            "/tmp/source1",
+            "-s",
+            "/tmp/source2",
+            "-t",
+            "/tmp/target",
+        ]);
+        assert!(result.is_ok());
+        let cli = result.unwrap();
+        if let Command::Chunks { sources, .. } = &cli.command {
+            assert_eq!(sources.len(), 2);
+        } else {
+            panic!("expected Chunks command");
+        }
+    }
+
+    #[test]
+    fn cli_parses_chunks_with_flags() {
+        let result = Cli::try_parse_from(vec![
+            "cairn-dirtree",
+            "chunks",
+            "-s",
+            "/tmp/source",
+            "-t",
+            "/tmp/target",
+            "--new",
+            "--old",
+            "--common",
+        ]);
+        assert!(result.is_ok());
+        let cli = result.unwrap();
+        if let Command::Chunks { new, old, common, .. } = &cli.command {
+            assert!(*new);
+            assert!(*old);
+            assert!(*common);
+        } else {
+            panic!("expected Chunks command");
+        }
+    }
+
+    #[test]
+    fn cli_rejects_chunks_without_source() {
+        let result =
+            Cli::try_parse_from(vec!["cairn-dirtree", "chunks", "-t", "/tmp/target"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn cli_rejects_chunks_without_target() {
+        let result =
+            Cli::try_parse_from(vec!["cairn-dirtree", "chunks", "-s", "/tmp/source"]);
         assert!(result.is_err());
     }
 }

@@ -75,6 +75,30 @@ pub enum WalkError {
     NotAFileIndex { id: String },
 }
 
+/// Collects all ChunkIDs reachable from a dirtree.
+///
+/// Delegates to `resolve()`, extracting only the `chunks` field from File nodes.
+/// This avoids duplicating the tree-walking and error-handling logic.
+///
+/// # Errors
+///
+/// Returns `WalkError` if any referenced object is missing from the bundle
+/// or has a kind tag mismatch (same validation as `resolve()`).
+pub fn reachable_chunks(
+    root: DirTreeID,
+    algo: HashAlgorithm,
+    bundle: &DirTreeBundle,
+) -> Result<std::collections::HashSet<ChunkID>, WalkError> {
+    Ok(resolve(root, algo, bundle)?
+        .into_iter()
+        .filter_map(|n| match n.kind {
+            ResolvedKind::File { chunks } => Some(chunks),
+            _ => None,
+        })
+        .flatten()
+        .collect())
+}
+
 /// Resolves a dirtree bundle into a flat vector of `ResolvedNode` entries,
 /// in depth-first walk order (mirroring `DirTree::nodes()`'s git-tree-sort order).
 ///
@@ -681,7 +705,7 @@ mod tests {
         assert!(matches!(result.unwrap_err(), WalkError::DecodeError { .. }));
     }
 
-    #[test]
+#[test]
     fn walk_order_matches_git_tree_sort() {
         let algo = HashAlgorithm::Sha256;
         let mut bundle = DirTreeBundle::new();
