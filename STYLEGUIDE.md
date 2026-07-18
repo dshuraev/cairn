@@ -46,7 +46,7 @@ Each crate has a clear role (per `CLAUDE.md`):
 
 - **cairn-core**: Types, error definitions, canonical encoding primitives. No external I/O.
 - **cairn-digest**: Chunk store and dirtree generation. Pure mechanism, no signing/encryption.
-- **cairn-dirtree**: Operations over dirtrees (diff, inspect, reconstruct).
+- **cairn-dirtree**: Inspection and operations over dirtree bundles.
 - **cairn-pkg**: Manifest assembly, signing, versioning (built on digest).
 
 Keep dependencies minimal and acyclic. If crate-A needs crate-B's types, those types belong in cairn-core.
