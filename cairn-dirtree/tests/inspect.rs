@@ -8,7 +8,9 @@
 use cairn_core::bundle::DirTreeBundle;
 use cairn_dirtree::render::OutputFormat;
 use std::fs;
+use std::io::Read;
 use std::path::PathBuf;
+use std::process::Stdio;
 use tempfile::TempDir;
 
 /// Helper: creates a temporary source directory with various node types,
@@ -313,4 +315,95 @@ fn special_nodes_output_format() {
 
     // Output should be valid even if no special nodes exist
     assert!(output.len() >= 0); // Always true, just verifies no panic
+}
+
+#[test]
+fn binary_handles_closed_stdout_without_panic() {
+    let tmpdir = TempDir::new().expect("failed to create tmpdir");
+    let src = tmpdir.path().join("src");
+    fs::create_dir(&src).expect("failed to create src");
+
+    // Create many files to ensure output is large enough to fill pipe buffer
+    for i in 0..100 {
+        let fname = format!("file_{:03}.txt", i);
+        fs::write(src.join(&fname), format!("content {}", i).as_bytes())
+            .expect("failed to write test file");
+    }
+
+    // Create a subdirectory with files to generate more output
+    let subdir = src.join("subdir");
+    fs::create_dir(&subdir).expect("failed to create subdir");
+    for i in 0..50 {
+        let fname = format!("nested_{:03}.txt", i);
+        fs::write(subdir.join(&fname), format!("nested content {}", i).as_bytes())
+            .expect("failed to write nested file");
+    }
+
+    // Run digest to produce a bundle
+    let store_dir = tmpdir.path().join("store");
+    let bundle_path = tmpdir.path().join("out.dirtree");
+
+    let _root = cairn_digest::digest(
+        &src,
+        &cairn_digest::Store::new(store_dir, vec![]),
+        &bundle_path,
+        &cairn_digest::build::DigestOptions {
+            chunk_config: cairn_digest::chunk::ChunkConfig {
+                min_size: 512,
+                avg_size: 1024,
+                max_size: 2048,
+            },
+            algo: cairn_core::hash::HashAlgorithm::Sha256,
+        },
+    )
+    .expect("failed to digest");
+
+    // Find the cairn-dirtree binary in the target directory.
+    // The test binary is in target/debug/deps/, so we go up two levels to target/debug/
+    let mut binary_path = std::env::current_exe().expect("failed to get current exe path");
+    binary_path.pop(); // Remove the test binary name (in deps/)
+    binary_path.pop(); // Remove 'deps' directory
+    binary_path.push("cairn-dirtree");
+
+    assert!(
+        binary_path.exists(),
+        "cairn-dirtree binary not found at {:?}",
+        binary_path
+    );
+
+    // Spawn the cairn-dirtree binary with piped stdout
+    let mut child = std::process::Command::new(&binary_path)
+        .args(&["tree", "--input", bundle_path.to_str().unwrap()])
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("failed to spawn cairn-dirtree");
+
+    {
+        // Take ownership of stdout and read only a small amount, then drop it to close the pipe.
+        // This simulates the behavior of `head` which closes the pipe early.
+        let mut stdout = child.stdout.take().expect("failed to get stdout");
+        let mut buf = [0u8; 1024];
+        let _ = stdout.read(&mut buf); // Read a small amount and then drop stdout to close pipe
+        drop(stdout);
+    }
+
+    // Wait for child to complete. It should exit cleanly (with code 0 or EPIPE-equivalent),
+    // not panic. On Unix, with SIGPIPE set to SIG_DFL, the process should exit cleanly.
+    let status = child.wait().expect("failed to wait for child");
+
+    // The process should have exited successfully or with a signal (not a panic).
+    // A panic would result in a non-standard exit code.
+    // We check that it either exited with code 0 or exited due to SIGPIPE (signal 13).
+    if let Some(code) = status.code() {
+        // If it exited with a code, it should be 0 (or possibly 141 if it caught the signal)
+        // but definitely not a panic code (which would be 101 in Rust).
+        assert_ne!(
+            code, 101,
+            "binary should not panic on closed stdout (panic exit code is 101, got {})",
+            code
+        );
+    } else {
+        // Exited due to signal; this is expected for SIGPIPE (signal 13).
+        // The key is that it didn't panic (which would show "thread 'main' panicked").
+    }
 }

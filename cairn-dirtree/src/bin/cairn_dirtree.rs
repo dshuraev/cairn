@@ -11,6 +11,22 @@ use clap::{Parser, Subcommand, ValueEnum};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+// On Unix, reset SIGPIPE to default behavior to avoid panics when stdout is closed by reader.
+#[cfg(unix)]
+fn setup_signal_handlers() {
+    unsafe {
+        use nix::sys::signal::{signal, SigHandler, Signal};
+        // SAFETY: Setting SIGPIPE to SIG_DFL is safe and idiomatic for Unix CLI tools.
+        // This prevents panics when piping output through commands like `head` that close early.
+        let _ = signal(Signal::SIGPIPE, SigHandler::SigDfl);
+    }
+}
+
+#[cfg(not(unix))]
+fn setup_signal_handlers() {
+    // No-op on non-Unix platforms.
+}
+
 /// Local wrapper around [`OutputFormat`] for clap compatibility.
 #[derive(ValueEnum, Clone, Copy, Debug)]
 enum OutputArg {
@@ -197,6 +213,7 @@ fn run(cli: Cli) -> anyhow::Result<()> {
 }
 
 fn main() -> anyhow::Result<()> {
+    setup_signal_handlers();
     let cli = Cli::parse();
     run(cli)
 }
