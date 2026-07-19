@@ -61,7 +61,7 @@ fn debug_round_trip() {
 
     // Read and inspect the first bundle
     let bundle_bytes1 = fs::read(&bundle_file1).expect("read bundle1");
-    let (_root_from_bundle1, _algo1, bundle1) =
+    let (_version1, _root_from_bundle1, _algo1, bundle1) =
         DirTreeBundle::decode_canonical(&bundle_bytes1).expect("decode bundle1");
 
     eprintln!("Bundle1 size: {} bytes", bundle_bytes1.len());
@@ -106,7 +106,7 @@ fn debug_round_trip() {
 
     // Read and inspect the second bundle
     let bundle_bytes2 = fs::read(&bundle_file2).expect("read bundle2");
-    let (_root_from_bundle2, _algo2, bundle2) =
+    let (_version2, _root_from_bundle2, _algo2, bundle2) =
         DirTreeBundle::decode_canonical(&bundle_bytes2).expect("decode bundle2");
 
     eprintln!("Bundle2 size: {} bytes", bundle_bytes2.len());

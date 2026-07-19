@@ -34,6 +34,13 @@ pub enum ReconstructError {
         /// The path that already exists.
         path: PathBuf,
     },
+    /// Bundle version is not supported by this binary.
+    UnsupportedBundleVersion {
+        /// The version found in the bundle.
+        found: u8,
+        /// The maximum version this binary supports.
+        max_supported: u8,
+    },
 }
 
 impl fmt::Display for ReconstructError {
@@ -54,6 +61,14 @@ impl fmt::Display for ReconstructError {
             ReconstructError::OutputExists { path } => {
                 write!(f, "output path already exists: {}", path.display())
             }
+            ReconstructError::UnsupportedBundleVersion {
+                found,
+                max_supported,
+            } => write!(
+                f,
+                "unsupported bundle version: {} (maximum supported: {})",
+                found, max_supported
+            ),
         }
     }
 }
@@ -64,6 +79,7 @@ impl std::error::Error for ReconstructError {
             ReconstructError::Io(e) => Some(e),
             ReconstructError::Decode(e) => Some(e),
             ReconstructError::Store(e) => Some(e),
+            ReconstructError::UnsupportedBundleVersion { .. } => None,
             _ => None,
         }
     }

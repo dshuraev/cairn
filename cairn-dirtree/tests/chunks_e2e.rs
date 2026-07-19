@@ -54,11 +54,11 @@ fn chunks_single_source_target_fully_overlapping() {
         create_fixture_bundle(&[("file.txt", b"hello world")], algo);
 
     let source_bytes = fs::read(&source_path).expect("failed to read source");
-    let (source_root, source_algo, source_bundle) =
+    let (_version_source, source_root, source_algo, source_bundle) =
         DirTreeBundle::decode_canonical(&source_bytes).expect("failed to decode source");
 
     let target_bytes = fs::read(&target_path).expect("failed to read target");
-    let (target_root, target_algo, target_bundle) =
+    let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
     let sources = vec![(
@@ -96,11 +96,11 @@ fn chunks_single_source_target_fully_disjoint() {
         create_fixture_bundle(&[("target.txt", b"target content different")], algo);
 
     let source_bytes = fs::read(&source_path).expect("failed to read source");
-    let (source_root, source_algo, source_bundle) =
+    let (_version_source, source_root, source_algo, source_bundle) =
         DirTreeBundle::decode_canonical(&source_bytes).expect("failed to decode source");
 
     let target_bytes = fs::read(&target_path).expect("failed to read target");
-    let (target_root, target_algo, target_bundle) =
+    let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
     let sources = vec![(
@@ -145,11 +145,11 @@ fn chunks_partial_overlap() {
     );
 
     let source_bytes = fs::read(&source_path).expect("failed to read source");
-    let (source_root, source_algo, source_bundle) =
+    let (_version_source, source_root, source_algo, source_bundle) =
         DirTreeBundle::decode_canonical(&source_bytes).expect("failed to decode source");
 
     let target_bytes = fs::read(&target_path).expect("failed to read target");
-    let (target_root, target_algo, target_bundle) =
+    let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
     let sources = vec![(
@@ -195,15 +195,15 @@ fn chunks_multiple_sources_union() {
     );
 
     let source1_bytes = fs::read(&source1_path).expect("failed to read source1");
-    let (source1_root, source1_algo, source1_bundle) =
+    let (_version_source1, source1_root, source1_algo, source1_bundle) =
         DirTreeBundle::decode_canonical(&source1_bytes).expect("failed to decode source1");
 
     let source2_bytes = fs::read(&source2_path).expect("failed to read source2");
-    let (source2_root, source2_algo, source2_bundle) =
+    let (_version_source2, source2_root, source2_algo, source2_bundle) =
         DirTreeBundle::decode_canonical(&source2_bytes).expect("failed to decode source2");
 
     let target_bytes = fs::read(&target_path).expect("failed to read target");
-    let (target_root, target_algo, target_bundle) =
+    let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
     let sources = vec![
@@ -248,11 +248,11 @@ fn chunks_only_new_requested() {
         create_fixture_bundle(&[("a.txt", b"aaa"), ("b.txt", b"bbb")], algo);
 
     let source_bytes = fs::read(&source_path).expect("failed to read source");
-    let (source_root, source_algo, source_bundle) =
+    let (_version_source, source_root, source_algo, source_bundle) =
         DirTreeBundle::decode_canonical(&source_bytes).expect("failed to decode source");
 
     let target_bytes = fs::read(&target_path).expect("failed to read target");
-    let (target_root, target_algo, target_bundle) =
+    let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
     let sources = vec![(
@@ -289,11 +289,11 @@ fn chunks_no_flags_defaults_to_new() {
         create_fixture_bundle(&[("a.txt", b"aaa"), ("b.txt", b"bbb")], algo);
 
     let source_bytes = fs::read(&source_path).expect("failed to read source");
-    let (source_root, source_algo, source_bundle) =
+    let (_version_source, source_root, source_algo, source_bundle) =
         DirTreeBundle::decode_canonical(&source_bytes).expect("failed to decode source");
 
     let target_bytes = fs::read(&target_path).expect("failed to read target");
-    let (target_root, target_algo, target_bundle) =
+    let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
     let sources = vec![(
@@ -332,11 +332,11 @@ fn chunks_algorithm_mismatch_sha256_vs_blake3() {
         create_fixture_bundle(&[("file.txt", b"content")], target_algo);
 
     let source_bytes = fs::read(&source_path).expect("failed to read source");
-    let (source_root, _, source_bundle) =
+    let (_version_source, source_root, _, source_bundle) =
         DirTreeBundle::decode_canonical(&source_bytes).expect("failed to decode source");
 
     let target_bytes = fs::read(&target_path).expect("failed to read target");
-    let (target_root, _, target_bundle) =
+    let (_version_target, target_root, _, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
     let sources = vec![(
@@ -375,11 +375,11 @@ fn chunks_all_algorithms_matching_sha256() {
         create_fixture_bundle(&[("file.txt", b"content")], algo);
 
     let source_bytes = fs::read(&source_path).expect("failed to read source");
-    let (source_root, source_algo, source_bundle) =
+    let (_version_source, source_root, source_algo, source_bundle) =
         DirTreeBundle::decode_canonical(&source_bytes).expect("failed to decode source");
 
     let target_bytes = fs::read(&target_path).expect("failed to read target");
-    let (target_root, target_algo, target_bundle) =
+    let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
     let sources = vec![(
@@ -411,11 +411,11 @@ fn chunks_all_algorithms_matching_blake3() {
         create_fixture_bundle(&[("file.txt", b"content")], algo);
 
     let source_bytes = fs::read(&source_path).expect("failed to read source");
-    let (source_root, source_algo, source_bundle) =
+    let (_version_source, source_root, source_algo, source_bundle) =
         DirTreeBundle::decode_canonical(&source_bytes).expect("failed to decode source");
 
     let target_bytes = fs::read(&target_path).expect("failed to read target");
-    let (target_root, target_algo, target_bundle) =
+    let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
     let sources = vec![(

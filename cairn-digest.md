@@ -161,6 +161,61 @@ Kind-specific payload:
 followed by `xattr_count × (u32 name_len, name, u32 value_len, value)`, with xattrs
 sorted by name bytes ascending (plain byte sort — no directory-suffix rule applies here).
 
+### 4.5 DirTreeBundle container encoding
+
+The `DirTreeBundle` is a self-contained bundle file format (used by `--out` in
+`cairn-digest` and consumed by `cairn-reconstruct` and `cairn-dirtree`). It contains
+a root `DirTreeID` plus every `DirTree`, `Metadata`, and `FileIndex` object that root
+transitively references, all canonically encoded and inlined into a single file.
+
+The bundle wire format is:
+
+```txt
+u8  version,
+u8  algo_tag,
+32B root_hash,
+u32 object_count,
+<object_count × [u8 kind_tag, 32B id, u32 len, len bytes]>
+```
+
+**Version byte (leading, mandatory)**: The very first byte is a `u8 version` field.
+This byte **must** be read and validated before any other field is interpreted,
+since a future bundle format version could change the meaning or position of
+everything that follows (including `algo_tag` itself). The reader must reject any
+bundle whose version byte is unknown to it as a structural parse error. The current
+version is 0. The version byte enables forward-compatibility: a reader that does not
+recognize a version byte can immediately reject the bundle without attempting to
+parse the rest, rather than producing undefined behavior from misinterpreted bytes.
+
+**Algorithm tag (`algo_tag`)**: Follows version. A `u8` indicating which hash
+algorithm was used for all IDs in the bundle (`0` = SHA-256, `1` = BLAKE3). Must
+match the algorithm used when computing the root and object hashes.
+
+**Root hash**: A 32-byte hash identifying the root `DirTree` object.
+
+**Object count**: A `u32` count of inlined objects.
+
+**Objects**: `object_count` objects, each encoded as:
+- `u8 kind_tag`: identifies the object kind (`0` = DirTree, `1` = Metadata,
+  `2` = FileIndex).
+- `32B id`: the content-addressed hash ID of this object.
+- `u32 len`: length of the canonical encoding.
+- `len bytes`: the canonical encoding of the object itself (as if it had been
+  produced by that object's `encode_canonical` method, minus any object-level
+  kind tag which is implicit in the bundle-level `kind_tag` field here).
+
+Objects must be sorted by ascending ID (hash bytes) to ensure canonical, deterministic
+encoding for deduplication.
+
+**Note on version policy**: This specification defines the wire format only. Specific
+consumer binaries (`cairn-reconstruct`, `cairn-dirtree`) may independently enforce a
+maximum-supported-version policy stricter than the version bytes they can structurally
+parse. For example, `cairn-reconstruct` may have a `MAX_SUPPORTED_BUNDLE_VERSION` that
+rejects bundles with version > 0 even if the bundle format's structural decoder were
+extended to parse version 1 or later. This allows consumers to be independently
+conservative about which format versions they trust, without requiring coordination
+across all consumers.
+
 ## 5. Algorithm
 
 Given `SRC_DIR`:

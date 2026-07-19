@@ -12,6 +12,7 @@ use crate::encode::Encoder;
 use crate::hash::{Hash, HashAlgorithm};
 use crate::id::DirTreeID;
 use crate::kind::{DIRTREE_KIND_TAG, FILEINDEX_KIND_TAG, METADATA_KIND_TAG};
+use crate::version::CURRENT_BUNDLE_VERSION;
 use std::collections::HashMap;
 
 /// Which §3 object a bundle entry's bytes decode as.
@@ -100,14 +101,15 @@ impl DirTreeBundle {
     }
 
     /// Encodes this bundle, together with `root` and `algo`, into a single
-    /// self-contained byte stream suitable for writing to `--out`: an algo
-    /// tag, the root ID, an object count, then each object as
+    /// self-contained byte stream suitable for writing to `--out`: a version
+    /// byte, an algo tag, the root ID, an object count, then each object as
     /// `kind_tag || id || len_prefixed bytes`.
     ///
     /// Objects are encoded in strictly ascending order of their ID (hash bytes)
     /// to ensure canonical (deterministic) encoding for deduplication (§4.1).
     pub fn encode_canonical(&self, root: DirTreeID, algo: HashAlgorithm) -> Vec<u8> {
         let mut e = Encoder::new();
+        e.write_u8(CURRENT_BUNDLE_VERSION);
         e.write_u8(algo_tag(algo));
         e.write_hash(&root.0);
         e.write_u32(self.objects.len() as u32);
@@ -125,12 +127,20 @@ impl DirTreeBundle {
     }
 
     /// Decodes a bundle previously produced by `encode_canonical`, returning
-    /// the root ID, hash algorithm, and the bundle itself. Rejects trailing
-    /// bytes.
+    /// the version byte, root ID, hash algorithm, and the bundle itself.
+    /// Rejects trailing bytes.
+    ///
+    /// The version byte is returned so callers can apply their own max-version
+    /// policy. This function only checks that the version byte corresponds to
+    /// a structurally parseable format (currently, version 0 only).
     pub fn decode_canonical(
         bytes: &[u8],
-    ) -> Result<(DirTreeID, HashAlgorithm, Self), DecodeError> {
+    ) -> Result<(u8, DirTreeID, HashAlgorithm, Self), DecodeError> {
         let mut d = Decoder::new(bytes);
+        let version = d.read_u8()?;
+        if version != CURRENT_BUNDLE_VERSION {
+            return Err(DecodeError::UnsupportedBundleVersion(version));
+        }
         let algo = algo_from_tag(d.read_u8()?)?;
         let root = DirTreeID(d.read_hash()?);
         let count = d.read_u32()?;
@@ -142,7 +152,7 @@ impl DirTreeBundle {
             objects.insert(id, (kind, payload));
         }
         d.finish()?;
-        Ok((root, algo, Self { objects }))
+        Ok((version, root, algo, Self { objects }))
     }
 }
 
@@ -162,8 +172,9 @@ mod tests {
 
         let root = DirTreeID(a);
         let encoded = bundle.encode_canonical(root, HashAlgorithm::Sha256);
-        let (decoded_root, algo, decoded) = DirTreeBundle::decode_canonical(&encoded).unwrap();
+        let (version, decoded_root, algo, decoded) = DirTreeBundle::decode_canonical(&encoded).unwrap();
 
+        assert_eq!(version, CURRENT_BUNDLE_VERSION);
         assert_eq!(decoded_root, root);
         assert_eq!(algo, HashAlgorithm::Sha256);
         assert_eq!(decoded.len(), 2);
@@ -196,7 +207,7 @@ mod tests {
         let bundle = DirTreeBundle::new();
         let root = DirTreeID(hash_bytes(HashAlgorithm::Sha256, b"root"));
         let encoded = bundle.encode_canonical(root, HashAlgorithm::Sha256);
-        let (decoded_root, _algo, decoded) = DirTreeBundle::decode_canonical(&encoded).unwrap();
+        let (_version, decoded_root, _algo, decoded) = DirTreeBundle::decode_canonical(&encoded).unwrap();
         assert_eq!(decoded_root, root);
         assert!(decoded.is_empty());
     }
@@ -228,11 +239,11 @@ mod tests {
         let encoded = bundle.encode_canonical(root, HashAlgorithm::Sha256);
 
         // Decode and extract the object IDs in the order they appear
-        let (_, _, decoded) = DirTreeBundle::decode_canonical(&encoded).unwrap();
+        let (_, _, _, decoded) = DirTreeBundle::decode_canonical(&encoded).unwrap();
 
         // Manually parse the encoded bytes to check ordering of objects
-        // Format: 1 byte (algo) + 32 bytes (root) + 4 bytes (count) + objects
-        let mut offset = 1 + 32 + 4;
+        // Format: 1 byte (version) + 1 byte (algo) + 32 bytes (root) + 4 bytes (count) + objects
+        let mut offset = 1 + 1 + 32 + 4;
         let mut extracted_ids = Vec::new();
 
         for _ in 0..6 {
@@ -278,5 +289,41 @@ mod tests {
         assert_eq!(ObjectKind::DirTree.tag(), DIRTREE_KIND_TAG);
         assert_eq!(ObjectKind::Metadata.tag(), METADATA_KIND_TAG);
         assert_eq!(ObjectKind::FileIndex.tag(), FILEINDEX_KIND_TAG);
+    }
+
+    #[test]
+    fn unsupported_bundle_version_is_rejected() {
+        use crate::encode::Encoder;
+
+        // Hand-construct a bundle with an unsupported version byte (e.g., version 1)
+        let mut e = Encoder::new();
+        e.write_u8(1); // Unsupported version
+        e.write_u8(0); // Sha256
+        e.write_hash(&Hash([5u8; 32])); // Root hash
+        e.write_u32(0); // Object count
+
+        let bytes = e.into_bytes();
+        let result = DirTreeBundle::decode_canonical(&bytes);
+
+        match result {
+            Err(DecodeError::UnsupportedBundleVersion(1)) => {}
+            other => panic!("expected UnsupportedBundleVersion(1), got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn bundle_with_current_version_decodes_successfully() {
+        let bundle = DirTreeBundle::new();
+        let root_hash = hash_bytes(HashAlgorithm::Sha256, b"root");
+        let root = DirTreeID(root_hash);
+        let encoded = bundle.encode_canonical(root, HashAlgorithm::Sha256);
+
+        let (version, decoded_root, algo, decoded) =
+            DirTreeBundle::decode_canonical(&encoded).expect("should decode current version");
+
+        assert_eq!(version, CURRENT_BUNDLE_VERSION);
+        assert_eq!(decoded_root, root);
+        assert_eq!(algo, HashAlgorithm::Sha256);
+        assert!(decoded.is_empty());
     }
 }

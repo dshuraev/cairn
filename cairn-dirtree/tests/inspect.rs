@@ -75,7 +75,7 @@ fn ls_includes_all_files_in_txt_mode() {
 
     // Read bundle and run walk
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -100,7 +100,7 @@ fn ls_json_is_valid_json() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -119,7 +119,7 @@ fn stat_on_existing_path_succeeds() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -141,7 +141,7 @@ fn stat_json_on_file_includes_chunks() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -162,7 +162,7 @@ fn tree_shows_hierarchical_structure() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -181,7 +181,7 @@ fn links_shows_hardlinked_pairs() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -197,7 +197,7 @@ fn summary_counts_match_fixture() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -219,7 +219,7 @@ fn summary_json_is_valid() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -241,7 +241,7 @@ fn xattrs_output_is_valid_json() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -259,7 +259,7 @@ fn xattrs_txt_generates_output() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -289,7 +289,7 @@ fn symlinks_output_includes_target() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -306,7 +306,7 @@ fn special_nodes_output_format() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .expect("failed to decode bundle");
     let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
         .expect("failed to resolve bundle");
@@ -406,4 +406,63 @@ fn binary_handles_closed_stdout_without_panic() {
         // Exited due to signal; this is expected for SIGPIPE (signal 13).
         // The key is that it didn't panic (which would show "thread 'main' panicked").
     }
+}
+
+#[test]
+fn cli_rejects_unsupported_bundle_version() {
+    use cairn_core::encode::Encoder;
+    use cairn_core::hash::Hash;
+    use std::process::Command;
+
+    let tmpdir = TempDir::new().expect("failed to create temp dir");
+    let tmpdir_path = tmpdir.path();
+
+    // Hand-construct a bundle with an unsupported version byte (version 255)
+    let mut e = Encoder::new();
+    e.write_u8(255); // Unsupported version
+    e.write_u8(0); // Sha256
+    e.write_hash(&Hash([5u8; 32])); // Root hash
+    e.write_u32(0); // Object count
+
+    let bundle_bytes = e.into_bytes();
+    let bundle_path = tmpdir_path.join("bad_version.dirtree");
+    fs::write(&bundle_path, &bundle_bytes).expect("failed to write bad bundle");
+
+    // Find the cairn-dirtree binary in the target directory.
+    let mut binary_path = std::env::current_exe().expect("failed to get current exe path");
+    binary_path.pop(); // Remove the test binary name (in deps/)
+    binary_path.pop(); // Remove 'deps' directory
+    binary_path.push("cairn-dirtree");
+
+    assert!(
+        binary_path.exists(),
+        "cairn-dirtree binary not found at {:?}",
+        binary_path
+    );
+
+    // Run cairn-dirtree ls command with the bad bundle
+    let output = Command::new(&binary_path)
+        .args(&["ls", "--input", bundle_path.to_str().unwrap()])
+        .output()
+        .expect("failed to run cairn-dirtree");
+
+    // Verify exit code is 1 (error)
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "expected exit code 1, got {:?}",
+        output.status.code()
+    );
+
+    // Verify error message mentions unsupported version or version
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let combined = format!("{}\n{}", stderr, stdout);
+    assert!(
+        combined.contains("unsupported bundle version")
+            || combined.contains("version")
+            || combined.contains("decode"),
+        "error message should mention unsupported version, combined output: {}",
+        combined
+    );
 }

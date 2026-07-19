@@ -65,7 +65,7 @@ fn round_trip_digest_reconstruct_digest() {
 
     // Read the first bundle
     let bundle_bytes1 = fs::read(&bundle_file1).expect("read bundle1");
-    let (_root_from_bundle1, _algo1, bundle1) =
+    let (_version1, _root_from_bundle1, _algo1, bundle1) =
         DirTreeBundle::decode_canonical(&bundle_bytes1).expect("decode bundle1");
 
     // Reconstruct from bundle+store into a new directory
@@ -148,7 +148,7 @@ fn round_trip_directory_setgid_ordering() {
 
     // Read bundle
     let bundle_bytes1 = fs::read(&bundle_file1).expect("read bundle");
-    let (_root_from_bundle1, _algo1, bundle1) =
+    let (_version1, _root_from_bundle1, _algo1, bundle1) =
         DirTreeBundle::decode_canonical(&bundle_bytes1).expect("decode bundle");
 
     // Reconstruct
@@ -233,7 +233,7 @@ fn no_root_round_trip_voids_i1() {
 
     // Read bundle
     let bundle_bytes1 = fs::read(&bundle_file1).expect("read bundle");
-    let (_root_from_bundle1, _algo1, bundle1) =
+    let (_version1, _root_from_bundle1, _algo1, bundle1) =
         DirTreeBundle::decode_canonical(&bundle_bytes1).expect("decode bundle");
 
     // Reconstruct with --no-root (which should clear setuid bit)

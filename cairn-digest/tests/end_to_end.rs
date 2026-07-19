@@ -163,7 +163,7 @@ fn empty_directory_and_empty_file_do_not_collide() {
         );
 
     // Verify that we can walk the bundle without encountering kind mismatch errors
-    let (_, _, walked_bundle) = DirTreeBundle::decode_canonical(&bundle.encode_canonical(root_id, options.algo))
+    let (_, _, _, walked_bundle) = DirTreeBundle::decode_canonical(&bundle.encode_canonical(root_id, options.algo))
         .expect("bundle should round-trip through encode/decode");
 
     // Basic sanity check: the bundle contains multiple objects (root dirtree,

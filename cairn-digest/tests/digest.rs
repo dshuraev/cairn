@@ -28,7 +28,7 @@ fn digest_writes_a_standalone_bundle_decodable_without_the_store() {
     let root_id = digest(&src, &store, &out_path, &options).unwrap();
 
     let written = std::fs::read(&out_path).unwrap();
-    let (decoded_root, algo, bundle) = DirTreeBundle::decode_canonical(&written).unwrap();
+    let (_version, decoded_root, algo, bundle) = DirTreeBundle::decode_canonical(&written).unwrap();
     assert_eq!(decoded_root, root_id);
     assert_eq!(algo, HashAlgorithm::Sha256);
     // Root DirTree + "file.txt"'s Metadata + its FileIndex (no raw chunk bytes).

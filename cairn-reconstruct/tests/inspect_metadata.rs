@@ -52,7 +52,7 @@ fn inspect_metadata_objects() {
 
     // Read and inspect the first bundle
     let bundle_bytes1 = fs::read(&bundle_file1).expect("read bundle1");
-    let (_root_from_bundle1, _algo1, bundle1) =
+    let (_version1, _root_from_bundle1, _algo1, bundle1) =
         DirTreeBundle::decode_canonical(&bundle_bytes1).expect("decode bundle1");
 
     // Collect all metadata from bundle1
@@ -95,7 +95,7 @@ fn inspect_metadata_objects() {
 
     // Read and inspect the second bundle
     let bundle_bytes2 = fs::read(&bundle_file2).expect("read bundle2");
-    let (_root_from_bundle2, _algo2, bundle2) =
+    let (_version2, _root_from_bundle2, _algo2, bundle2) =
         DirTreeBundle::decode_canonical(&bundle_bytes2).expect("decode bundle2");
 
     // Collect all metadata from bundle2

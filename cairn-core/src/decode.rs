@@ -18,6 +18,8 @@ pub enum DecodeError {
     InvalidTag(u8),
     /// Bytes remained after decoding was expected to consume the whole input.
     TrailingBytes,
+    /// A DirTreeBundle version byte was not structurally parseable by this decoder.
+    UnsupportedBundleVersion(u8),
 }
 
 impl fmt::Display for DecodeError {
@@ -27,6 +29,7 @@ impl fmt::Display for DecodeError {
             DecodeError::InvalidUtf8 => write!(f, "invalid UTF-8 in encoded string"),
             DecodeError::InvalidTag(tag) => write!(f, "invalid tag byte: {tag}"),
             DecodeError::TrailingBytes => write!(f, "trailing bytes after decoded object"),
+            DecodeError::UnsupportedBundleVersion(v) => write!(f, "unsupported bundle version: {v}"),
         }
     }
 }

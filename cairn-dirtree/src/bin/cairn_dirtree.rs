@@ -144,13 +144,23 @@ enum Command {
     },
 }
 
+/// Maximum bundle version this binary can handle.
+const MAX_SUPPORTED_BUNDLE_VERSION: u8 = 0;
+
 /// Reads and decodes a dirtree bundle from a file.
 fn read_bundle(
     path: &Path,
 ) -> anyhow::Result<(cairn_core::id::DirTreeID, cairn_core::hash::HashAlgorithm, DirTreeBundle)> {
     let bytes = fs::read(path).context("failed to read bundle file")?;
-    let (root_id, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
+    let (version, root_id, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
         .context("failed to decode bundle")?;
+    if version > MAX_SUPPORTED_BUNDLE_VERSION {
+        anyhow::bail!(
+            "unsupported bundle version: {} (maximum supported: {})",
+            version,
+            MAX_SUPPORTED_BUNDLE_VERSION
+        );
+    }
     Ok((root_id, algo, bundle))
 }
 

@@ -21,6 +21,7 @@ pub mod id;
 pub mod kind;
 pub mod model;
 pub mod sort;
+pub mod version;
 
 #[cfg(test)]
 mod tests {
