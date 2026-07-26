@@ -1,7 +1,7 @@
-version: '3'
+version: "3"
 
 vars:
-  DIST: '{{.ROOT_DIR}}/dist'
+  DIST: "{{.ROOT_DIR}}/dist"
   AMD64_TARGET: x86_64-unknown-linux-musl
   ARM64_TARGET: aarch64-unknown-linux-musl
   BINARIES: cairn-digest cairn-dirtree cairn-reconstruct
@@ -41,39 +41,39 @@ tasks:
   build:amd64:
     desc: Cross-compile static release binaries for x86_64
     deps: [deps]
-    method: '{{.FP_METHOD}}'
+    method: "{{.FP_METHOD}}"
     sources:
-      - 'cairn-*/src/**/*.rs'
-      - 'cairn-*/Cargo.toml'
+      - "cairn-*/src/**/*.rs"
+      - "cairn-*/Cargo.toml"
       - Cargo.toml
       - Cargo.lock
     generates:
-      - 'target/{{.AMD64_TARGET}}/release/cairn-digest'
-      - 'target/{{.AMD64_TARGET}}/release/cairn-dirtree'
-      - 'target/{{.AMD64_TARGET}}/release/cairn-reconstruct'
+      - "target/{{.AMD64_TARGET}}/release/cairn-digest"
+      - "target/{{.AMD64_TARGET}}/release/cairn-dirtree"
+      - "target/{{.AMD64_TARGET}}/release/cairn-reconstruct"
     cmds:
       - cargo zigbuild --release --workspace --target {{.AMD64_TARGET}}
       - mkdir -p {{.DIST}}/linux-amd64
-      - for: { var: BINARIES, split: ' ' }
+      - for: { var: BINARIES, split: " " }
         cmd: cp target/{{.AMD64_TARGET}}/release/{{.ITEM}} {{.DIST}}/linux-amd64/{{.ITEM}}
 
   build:arm64:
     desc: Cross-compile static release binaries for arm64
     deps: [deps]
-    method: '{{.FP_METHOD}}'
+    method: "{{.FP_METHOD}}"
     sources:
-      - 'cairn-*/src/**/*.rs'
-      - 'cairn-*/Cargo.toml'
+      - "cairn-*/src/**/*.rs"
+      - "cairn-*/Cargo.toml"
       - Cargo.toml
       - Cargo.lock
     generates:
-      - 'target/{{.ARM64_TARGET}}/release/cairn-digest'
-      - 'target/{{.ARM64_TARGET}}/release/cairn-dirtree'
-      - 'target/{{.ARM64_TARGET}}/release/cairn-reconstruct'
+      - "target/{{.ARM64_TARGET}}/release/cairn-digest"
+      - "target/{{.ARM64_TARGET}}/release/cairn-dirtree"
+      - "target/{{.ARM64_TARGET}}/release/cairn-reconstruct"
     cmds:
       - cargo zigbuild --release --workspace --target {{.ARM64_TARGET}}
       - mkdir -p {{.DIST}}/linux-arm64
-      - for: { var: BINARIES, split: ' ' }
+      - for: { var: BINARIES, split: " " }
         cmd: cp target/{{.ARM64_TARGET}}/release/{{.ITEM}} {{.DIST}}/linux-arm64/{{.ITEM}}
 
   build:
@@ -83,7 +83,7 @@ tasks:
   checksums:
     desc: Generate SHA-256 checksums for all distributable binaries
     deps: [build]
-    method: '{{.FP_METHOD}}'
+    method: "{{.FP_METHOD}}"
     sources:
       - dist/linux-amd64/*
       - dist/linux-arm64/*
@@ -95,7 +95,7 @@ tasks:
   docker:build:amd64:
     desc: Build the Alpine-based distribution image for linux/amd64
     deps: [build, checksums]
-    method: '{{.FP_METHOD}}'
+    method: "{{.FP_METHOD}}"
     sources:
       - Dockerfile
       - dist/linux-amd64/*
@@ -106,7 +106,7 @@ tasks:
   docker:build:arm64:
     desc: Build the Alpine-based distribution image for linux/arm64
     deps: [build, checksums]
-    method: '{{.FP_METHOD}}'
+    method: "{{.FP_METHOD}}"
     sources:
       - Dockerfile
       - dist/linux-arm64/*
