@@ -16,7 +16,7 @@ tasks:
     cmds:
       - rustup target add {{.AMD64_TARGET}} {{.ARM64_TARGET}}
       - cargo install cargo-zigbuild --locked
-      - pip install --user ziglang
+      - mise install
     status:
       - rustup target list --installed | grep -q {{.AMD64_TARGET}}
       - rustup target list --installed | grep -q {{.ARM64_TARGET}}

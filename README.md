@@ -11,3 +11,7 @@ The project itself consists of several parts:
 - `cairn-digest`: see [`cairn-digest` specification](./cairn-digest.md)
 - `cairn-pkg`
 - TBD
+
+## Setup
+
+Before running `task deps` or other build tasks, ensure [mise](https://mise.jdx.dev/installing-mise.html) is installed and on your PATH.
