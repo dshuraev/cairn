@@ -49,8 +49,7 @@ struct Cli {
 /// Runs the reconstruction with the given CLI arguments.
 fn run(cli: Cli) -> anyhow::Result<cairn_reconstruct::MaterializeReport> {
     // Read and decode bundle
-    let (_root_id, algo, bundle) = read_bundle(&cli.input)
-        .context("failed to read bundle")?;
+    let (_root_id, algo, bundle) = read_bundle(&cli.input).context("failed to read bundle")?;
 
     // Create store
     let store = Store::new(cli.store.clone(), cli.seed_store.clone());
@@ -58,8 +57,7 @@ fn run(cli: Cli) -> anyhow::Result<cairn_reconstruct::MaterializeReport> {
     // If dry-run or check, just inspect; don't materialize
     if cli.dry_run || cli.check {
         if cli.dry_run {
-            let report = dry_run(&bundle, _root_id, &store, algo)
-                .context("dry-run failed")?;
+            let report = dry_run(&bundle, _root_id, &store, algo).context("dry-run failed")?;
             println!("Planned creates: {:?}", report.planned_creates);
             println!("Missing chunks: {}", report.missing_chunks.len());
             for chunk in &report.missing_chunks {
@@ -68,8 +66,7 @@ fn run(cli: Cli) -> anyhow::Result<cairn_reconstruct::MaterializeReport> {
         }
 
         if cli.check {
-            let report = check(&bundle, _root_id, algo, &store)
-                .context("check failed")?;
+            let report = check(&bundle, _root_id, algo, &store).context("check failed")?;
             println!("Verified: {} chunks", report.verified);
             println!("Failed: {} chunks", report.failed.len());
             for (chunk, err) in &report.failed {

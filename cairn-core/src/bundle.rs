@@ -172,7 +172,8 @@ mod tests {
 
         let root = DirTreeID(a);
         let encoded = bundle.encode_canonical(root, HashAlgorithm::Sha256);
-        let (version, decoded_root, algo, decoded) = DirTreeBundle::decode_canonical(&encoded).unwrap();
+        let (version, decoded_root, algo, decoded) =
+            DirTreeBundle::decode_canonical(&encoded).unwrap();
 
         assert_eq!(version, CURRENT_BUNDLE_VERSION);
         assert_eq!(decoded_root, root);
@@ -207,7 +208,8 @@ mod tests {
         let bundle = DirTreeBundle::new();
         let root = DirTreeID(hash_bytes(HashAlgorithm::Sha256, b"root"));
         let encoded = bundle.encode_canonical(root, HashAlgorithm::Sha256);
-        let (_version, decoded_root, _algo, decoded) = DirTreeBundle::decode_canonical(&encoded).unwrap();
+        let (_version, decoded_root, _algo, decoded) =
+            DirTreeBundle::decode_canonical(&encoded).unwrap();
         assert_eq!(decoded_root, root);
         assert!(decoded.is_empty());
     }

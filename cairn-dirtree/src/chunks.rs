@@ -36,7 +36,9 @@ impl std::fmt::Display for ChunksError {
                 write!(
                     f,
                     "algorithm mismatch: expected {:?} (from target), found {:?} in {}",
-                    expected, found, source.display()
+                    expected,
+                    found,
+                    source.display()
                 )
             }
             ChunksError::Walk(err) => write!(f, "{}", err),
@@ -54,7 +56,7 @@ impl From<crate::walk::WalkError> for ChunksError {
 
 /// Returns the raw 32-byte digest of a ChunkID (extracts Hash::0 from ChunkID::0).
 fn chunk_id_bytes(id: &ChunkID) -> &[u8; 32] {
-    &id.0.0
+    &id.0 .0
 }
 
 /// Requested chunk sets to compute.
@@ -126,11 +128,7 @@ pub fn compute(
     }
 
     // Resolve target chunks
-    let target_ids = crate::walk::reachable_chunks(
-        target.0,
-        target.1,
-        &target.2,
-    )?;
+    let target_ids = crate::walk::reachable_chunks(target.0, target.1, &target.2)?;
 
     // Resolve source chunks (union)
     let mut source_ids = HashSet::new();
@@ -140,11 +138,17 @@ pub fn compute(
     }
 
     // Compute set differences
-    let new_set = want.new.then(|| sorted_chunk_ids(target_ids.difference(&source_ids).copied()));
+    let new_set = want
+        .new
+        .then(|| sorted_chunk_ids(target_ids.difference(&source_ids).copied()));
 
-    let old_set = want.old.then(|| sorted_chunk_ids(source_ids.difference(&target_ids).copied()));
+    let old_set = want
+        .old
+        .then(|| sorted_chunk_ids(source_ids.difference(&target_ids).copied()));
 
-    let common_set = want.common.then(|| sorted_chunk_ids(target_ids.intersection(&source_ids).copied()));
+    let common_set = want
+        .common
+        .then(|| sorted_chunk_ids(target_ids.intersection(&source_ids).copied()));
 
     Ok(ChunksResult {
         new: new_set,
@@ -198,7 +202,11 @@ mod tests {
         let root_id = dirtree.id(algo);
 
         bundle.insert(ObjectKind::DirTree, root_id.0, dirtree.encode_canonical());
-        bundle.insert(ObjectKind::Metadata, file_meta_id.0, file_meta.encode_canonical());
+        bundle.insert(
+            ObjectKind::Metadata,
+            file_meta_id.0,
+            file_meta.encode_canonical(),
+        );
         bundle.insert(
             ObjectKind::FileIndex,
             file_index_id.0,
@@ -212,8 +220,7 @@ mod tests {
     fn single_source_target_fully_overlapping() {
         let algo = HashAlgorithm::Sha256;
         let (target_root, target_bundle) = build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
-        let (source_root, source_bundle) =
-            build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
+        let (source_root, source_bundle) = build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
 
         let sources = vec![(
             source_root,
@@ -221,7 +228,12 @@ mod tests {
             source_bundle,
             PathBuf::from("/tmp/source"),
         )];
-        let target = (target_root, algo, target_bundle, PathBuf::from("/tmp/target"));
+        let target = (
+            target_root,
+            algo,
+            target_bundle,
+            PathBuf::from("/tmp/target"),
+        );
 
         let result = compute(
             &sources,
@@ -251,7 +263,12 @@ mod tests {
             source_bundle,
             PathBuf::from("/tmp/source"),
         )];
-        let target = (target_root, algo, target_bundle, PathBuf::from("/tmp/target"));
+        let target = (
+            target_root,
+            algo,
+            target_bundle,
+            PathBuf::from("/tmp/target"),
+        );
 
         let result = compute(
             &sources,
@@ -283,7 +300,12 @@ mod tests {
             source_bundle,
             PathBuf::from("/tmp/source"),
         )];
-        let target = (target_root, algo, target_bundle, PathBuf::from("/tmp/target"));
+        let target = (
+            target_root,
+            algo,
+            target_bundle,
+            PathBuf::from("/tmp/target"),
+        );
 
         let result = compute(
             &sources,
@@ -307,8 +329,7 @@ mod tests {
     #[test]
     fn only_new_requested() {
         let algo = HashAlgorithm::Sha256;
-        let (target_root, target_bundle) =
-            build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
+        let (target_root, target_bundle) = build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
         let (source_root, source_bundle) = build_bundle_with_chunks(algo, &[b"chunk2"]);
 
         let sources = vec![(
@@ -317,7 +338,12 @@ mod tests {
             source_bundle,
             PathBuf::from("/tmp/source"),
         )];
-        let target = (target_root, algo, target_bundle, PathBuf::from("/tmp/target"));
+        let target = (
+            target_root,
+            algo,
+            target_bundle,
+            PathBuf::from("/tmp/target"),
+        );
 
         let result = compute(
             &sources,
@@ -338,10 +364,8 @@ mod tests {
     #[test]
     fn requested_but_empty_set() {
         let algo = HashAlgorithm::Sha256;
-        let (target_root, target_bundle) =
-            build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
-        let (source_root, source_bundle) =
-            build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
+        let (target_root, target_bundle) = build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
+        let (source_root, source_bundle) = build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
 
         let sources = vec![(
             source_root,
@@ -349,7 +373,12 @@ mod tests {
             source_bundle,
             PathBuf::from("/tmp/source"),
         )];
-        let target = (target_root, algo, target_bundle, PathBuf::from("/tmp/target"));
+        let target = (
+            target_root,
+            algo,
+            target_bundle,
+            PathBuf::from("/tmp/target"),
+        );
 
         let result = compute(
             &sources,
@@ -372,8 +401,7 @@ mod tests {
     #[test]
     fn no_flags_defaults_to_new() {
         let algo = HashAlgorithm::Sha256;
-        let (target_root, target_bundle) =
-            build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
+        let (target_root, target_bundle) = build_bundle_with_chunks(algo, &[b"chunk1", b"chunk2"]);
         let (source_root, source_bundle) = build_bundle_with_chunks(algo, &[b"chunk2"]);
 
         let sources = vec![(
@@ -382,7 +410,12 @@ mod tests {
             source_bundle,
             PathBuf::from("/tmp/source"),
         )];
-        let target = (target_root, algo, target_bundle, PathBuf::from("/tmp/target"));
+        let target = (
+            target_root,
+            algo,
+            target_bundle,
+            PathBuf::from("/tmp/target"),
+        );
 
         let result = compute(
             &sources,
@@ -423,7 +456,12 @@ mod tests {
                 PathBuf::from("/tmp/source2"),
             ),
         ];
-        let target = (target_root, algo, target_bundle, PathBuf::from("/tmp/target"));
+        let target = (
+            target_root,
+            algo,
+            target_bundle,
+            PathBuf::from("/tmp/target"),
+        );
 
         let result = compute(
             &sources,
@@ -447,8 +485,7 @@ mod tests {
     #[test]
     fn determinism_sorted_by_raw_bytes() {
         let algo = HashAlgorithm::Sha256;
-        let (target_root, target_bundle) =
-            build_bundle_with_chunks(algo, &[b"a", b"c", b"b"]);
+        let (target_root, target_bundle) = build_bundle_with_chunks(algo, &[b"a", b"c", b"b"]);
         let (source_root, source_bundle) = build_bundle_with_chunks(algo, &[]);
 
         let sources = vec![(
@@ -457,7 +494,12 @@ mod tests {
             source_bundle,
             PathBuf::from("/tmp/source"),
         )];
-        let target = (target_root, algo, target_bundle, PathBuf::from("/tmp/target"));
+        let target = (
+            target_root,
+            algo,
+            target_bundle,
+            PathBuf::from("/tmp/target"),
+        );
 
         let result1 = compute(
             &sources,
@@ -484,7 +526,7 @@ mod tests {
         // Both results should have sorted new chunks
         assert_eq!(result1.new, result2.new);
         if let Some(new_chunks) = &result1.new {
-            let is_sorted = new_chunks.windows(2).all(|w| w[0].0.0 <= w[1].0.0);
+            let is_sorted = new_chunks.windows(2).all(|w| w[0].0 .0 <= w[1].0 .0);
             assert!(is_sorted, "new chunks should be sorted by raw bytes");
         }
     }
@@ -493,7 +535,12 @@ mod tests {
     fn algorithm_mismatch_sha256_vs_blake3_in_sources() {
         let target = {
             let (root, bundle) = build_bundle_with_chunks(HashAlgorithm::Sha256, &[b"chunk1"]);
-            (root, HashAlgorithm::Sha256, bundle, PathBuf::from("/tmp/target"))
+            (
+                root,
+                HashAlgorithm::Sha256,
+                bundle,
+                PathBuf::from("/tmp/target"),
+            )
         };
 
         let sources = vec![(
@@ -533,7 +580,12 @@ mod tests {
     fn algorithm_mismatch_mixed_sources() {
         let target = {
             let (root, bundle) = build_bundle_with_chunks(HashAlgorithm::Sha256, &[b"chunk1"]);
-            (root, HashAlgorithm::Sha256, bundle, PathBuf::from("/tmp/target"))
+            (
+                root,
+                HashAlgorithm::Sha256,
+                bundle,
+                PathBuf::from("/tmp/target"),
+            )
         };
 
         let (source1_root, source1_bundle) =
@@ -590,7 +642,12 @@ mod tests {
                 PathBuf::from("/tmp/source2"),
             ),
         ];
-        let target = (target_root, algo, target_bundle, PathBuf::from("/tmp/target"));
+        let target = (
+            target_root,
+            algo,
+            target_bundle,
+            PathBuf::from("/tmp/target"),
+        );
 
         let result = compute(
             &sources,
@@ -627,7 +684,11 @@ mod tests {
         let root_id = dirtree.id(algo);
 
         target_bundle.insert(ObjectKind::DirTree, root_id.0, dirtree.encode_canonical());
-        target_bundle.insert(ObjectKind::Metadata, file_meta_id.0, file_meta.encode_canonical());
+        target_bundle.insert(
+            ObjectKind::Metadata,
+            file_meta_id.0,
+            file_meta.encode_canonical(),
+        );
         // NOTE: intentionally NOT inserting file_index
 
         let (source_root, source_bundle) = build_bundle_with_chunks(algo, &[]);

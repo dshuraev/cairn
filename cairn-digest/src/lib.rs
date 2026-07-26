@@ -19,6 +19,6 @@ pub mod metadata;
 pub mod walk;
 
 pub use build::DigestOptions;
+pub use cairn_store::Store;
 pub use digest::digest;
 pub use error::DigestError;
-pub use cairn_store::Store;

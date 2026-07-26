@@ -2,10 +2,10 @@
 
 use crate::build::{build_tree, DigestOptions};
 use crate::error::DigestError;
-use cairn_store::Store;
 use crate::walk::walk_tree;
 use cairn_core::bundle::DirTreeBundle;
 use cairn_core::id::DirTreeID;
+use cairn_store::Store;
 use std::fs;
 use std::path::{Path, PathBuf};
 

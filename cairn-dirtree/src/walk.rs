@@ -5,10 +5,10 @@
 //! walk order. All downstream rendering functions consume this output.
 
 use cairn_core::bundle::{DirTreeBundle, ObjectKind};
+use cairn_core::decode::DecodeError;
 use cairn_core::hash::HashAlgorithm;
 use cairn_core::id::{ChunkID, DirTreeID, LinkGroupID};
 use cairn_core::model::{DirTree, FileIndex, Metadata, NodeKind};
-use cairn_core::decode::DecodeError;
 use thiserror::Error;
 
 /// The kind of a resolved node, with already-resolved child/chunk information.
@@ -153,12 +153,13 @@ fn resolve_dir(
         };
 
         // Resolve metadata.
-        let metadata_bytes = bundle
-            .get(&node.metadata_id.0)
-            .ok_or_else(|| WalkError::MissingObject {
-                id: node.metadata_id.0.to_string(),
-                referenced_by: format!("node at path {}", node_path),
-            })?;
+        let metadata_bytes =
+            bundle
+                .get(&node.metadata_id.0)
+                .ok_or_else(|| WalkError::MissingObject {
+                    id: node.metadata_id.0.to_string(),
+                    referenced_by: format!("node at path {}", node_path),
+                })?;
 
         if metadata_bytes.0 != ObjectKind::Metadata {
             return Err(WalkError::KindMismatch {
@@ -168,22 +169,22 @@ fn resolve_dir(
             });
         }
 
-        let metadata = Metadata::decode_canonical(metadata_bytes.1).map_err(|e| {
-            WalkError::DecodeError {
+        let metadata =
+            Metadata::decode_canonical(metadata_bytes.1).map_err(|e| WalkError::DecodeError {
                 path: node_path.clone(),
                 source: e,
-            }
-        })?;
+            })?;
 
         // Resolve kind-specific fields.
         let kind = match &node.kind {
             NodeKind::File { file_index_id } => {
-                let file_index_bytes = bundle
-                    .get(&file_index_id.0)
-                    .ok_or_else(|| WalkError::MissingObject {
-                        id: file_index_id.0.to_string(),
-                        referenced_by: format!("file at path {}", node_path),
-                    })?;
+                let file_index_bytes =
+                    bundle
+                        .get(&file_index_id.0)
+                        .ok_or_else(|| WalkError::MissingObject {
+                            id: file_index_id.0.to_string(),
+                            referenced_by: format!("file at path {}", node_path),
+                        })?;
 
                 if file_index_bytes.0 != ObjectKind::FileIndex {
                     return Err(WalkError::KindMismatch {
@@ -193,25 +194,25 @@ fn resolve_dir(
                     });
                 }
 
-                let file_index =
-                    FileIndex::decode_canonical(file_index_bytes.1).map_err(|e| {
-                        WalkError::DecodeError {
-                            path: node_path.clone(),
-                            source: e,
-                        }
-                    })?;
+                let file_index = FileIndex::decode_canonical(file_index_bytes.1).map_err(|e| {
+                    WalkError::DecodeError {
+                        path: node_path.clone(),
+                        source: e,
+                    }
+                })?;
 
                 ResolvedKind::File {
                     chunks: file_index.chunks().to_vec(),
                 }
             }
             NodeKind::Dir { children_id } => {
-                let children_bytes = bundle
-                    .get(&children_id.0)
-                    .ok_or_else(|| WalkError::MissingObject {
-                        id: children_id.0.to_string(),
-                        referenced_by: format!("dir at path {}", node_path),
-                    })?;
+                let children_bytes =
+                    bundle
+                        .get(&children_id.0)
+                        .ok_or_else(|| WalkError::MissingObject {
+                            id: children_id.0.to_string(),
+                            referenced_by: format!("dir at path {}", node_path),
+                        })?;
 
                 if children_bytes.0 != ObjectKind::DirTree {
                     return Err(WalkError::KindMismatch {
@@ -255,12 +256,13 @@ fn resolve_dir(
 
         // Then recurse into directories to append their children
         if let NodeKind::Dir { children_id } = &node.kind {
-            let children_bytes = bundle
-                .get(&children_id.0)
-                .ok_or_else(|| WalkError::MissingObject {
-                    id: children_id.0.to_string(),
-                    referenced_by: format!("dir at path {}", node_path),
-                })?;
+            let children_bytes =
+                bundle
+                    .get(&children_id.0)
+                    .ok_or_else(|| WalkError::MissingObject {
+                        id: children_id.0.to_string(),
+                        referenced_by: format!("dir at path {}", node_path),
+                    })?;
 
             resolve_dir(
                 &children_id.0,
@@ -315,11 +317,7 @@ mod tests {
         let root_id = dirtree.id(algo);
 
         // Insert into bundle.
-        bundle.insert(
-            ObjectKind::DirTree,
-            root_id.0,
-            dirtree.encode_canonical(),
-        );
+        bundle.insert(ObjectKind::DirTree, root_id.0, dirtree.encode_canonical());
         bundle.insert(
             ObjectKind::Metadata,
             file_meta_id.0,
@@ -437,11 +435,7 @@ mod tests {
         let dirtree = DirTree::new(vec![link_node]);
         let root_id = dirtree.id(algo);
 
-        bundle.insert(
-            ObjectKind::DirTree,
-            root_id.0,
-            dirtree.encode_canonical(),
-        );
+        bundle.insert(ObjectKind::DirTree, root_id.0, dirtree.encode_canonical());
         bundle.insert(
             ObjectKind::Metadata,
             link_meta_id.0,
@@ -472,19 +466,12 @@ mod tests {
             "tty",
             dev_meta_id,
             None,
-            NodeKind::Device {
-                major: 5,
-                minor: 0,
-            },
+            NodeKind::Device { major: 5, minor: 0 },
         );
         let dirtree = DirTree::new(vec![dev_node]);
         let root_id = dirtree.id(algo);
 
-        bundle.insert(
-            ObjectKind::DirTree,
-            root_id.0,
-            dirtree.encode_canonical(),
-        );
+        bundle.insert(ObjectKind::DirTree, root_id.0, dirtree.encode_canonical());
         bundle.insert(
             ObjectKind::Metadata,
             dev_meta_id.0,
@@ -519,11 +506,7 @@ mod tests {
         let dirtree = DirTree::new(vec![fifo_node, socket_node]);
         let root_id = dirtree.id(algo);
 
-        bundle.insert(
-            ObjectKind::DirTree,
-            root_id.0,
-            dirtree.encode_canonical(),
-        );
+        bundle.insert(ObjectKind::DirTree, root_id.0, dirtree.encode_canonical());
         bundle.insert(
             ObjectKind::Metadata,
             fifo_meta_id.0,
@@ -568,11 +551,7 @@ mod tests {
         let dirtree = DirTree::new(vec![node]);
         let root_id = dirtree.id(algo);
 
-        bundle.insert(
-            ObjectKind::DirTree,
-            root_id.0,
-            dirtree.encode_canonical(),
-        );
+        bundle.insert(ObjectKind::DirTree, root_id.0, dirtree.encode_canonical());
         bundle.insert(
             ObjectKind::Metadata,
             file_meta_id.0,
@@ -608,11 +587,7 @@ mod tests {
         let dirtree = DirTree::new(vec![node]);
         let root_id = dirtree.id(algo);
 
-        bundle.insert(
-            ObjectKind::DirTree,
-            root_id.0,
-            dirtree.encode_canonical(),
-        );
+        bundle.insert(ObjectKind::DirTree, root_id.0, dirtree.encode_canonical());
         bundle.insert(
             ObjectKind::FileIndex,
             file_index_id.0,
@@ -621,7 +596,10 @@ mod tests {
 
         let result = resolve(root_id, algo, &bundle);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), WalkError::MissingObject { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            WalkError::MissingObject { .. }
+        ));
     }
 
     #[test]
@@ -644,11 +622,7 @@ mod tests {
         let dirtree = DirTree::new(vec![node]);
         let root_id = dirtree.id(algo);
 
-        bundle.insert(
-            ObjectKind::DirTree,
-            root_id.0,
-            dirtree.encode_canonical(),
-        );
+        bundle.insert(ObjectKind::DirTree, root_id.0, dirtree.encode_canonical());
         bundle.insert(
             ObjectKind::DirTree, // Wrong! Should be Metadata
             file_meta_id.0,
@@ -662,7 +636,10 @@ mod tests {
 
         let result = resolve(root_id, algo, &bundle);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), WalkError::KindMismatch { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            WalkError::KindMismatch { .. }
+        ));
     }
 
     #[test]
@@ -684,11 +661,7 @@ mod tests {
         let dirtree = DirTree::new(vec![node]);
         let root_id = dirtree.id(algo);
 
-        bundle.insert(
-            ObjectKind::DirTree,
-            root_id.0,
-            dirtree.encode_canonical(),
-        );
+        bundle.insert(ObjectKind::DirTree, root_id.0, dirtree.encode_canonical());
         bundle.insert(
             ObjectKind::Metadata,
             file_meta_id.0,
@@ -705,7 +678,7 @@ mod tests {
         assert!(matches!(result.unwrap_err(), WalkError::DecodeError { .. }));
     }
 
-#[test]
+    #[test]
     fn walk_order_matches_git_tree_sort() {
         let algo = HashAlgorithm::Sha256;
         let mut bundle = DirTreeBundle::new();
@@ -740,13 +713,17 @@ mod tests {
             "b",
             b_meta_id,
             None,
-            NodeKind::File { file_index_id: b_index_id },
+            NodeKind::File {
+                file_index_id: b_index_id,
+            },
         );
         let a_file_node = Node::new(
             "a",
             a_meta_id,
             None,
-            NodeKind::File { file_index_id: a_index_id },
+            NodeKind::File {
+                file_index_id: a_index_id,
+            },
         );
 
         // Deliberately insert in non-sorted order
@@ -759,21 +736,13 @@ mod tests {
             root_id.0,
             root_dirtree.encode_canonical(),
         );
-        bundle.insert(
-            ObjectKind::Metadata,
-            a_meta_id.0,
-            a_meta.encode_canonical(),
-        );
+        bundle.insert(ObjectKind::Metadata, a_meta_id.0, a_meta.encode_canonical());
         bundle.insert(
             ObjectKind::FileIndex,
             a_index_id.0,
             a_index.encode_canonical(),
         );
-        bundle.insert(
-            ObjectKind::Metadata,
-            b_meta_id.0,
-            b_meta.encode_canonical(),
-        );
+        bundle.insert(ObjectKind::Metadata, b_meta_id.0, b_meta.encode_canonical());
         bundle.insert(
             ObjectKind::FileIndex,
             b_index_id.0,

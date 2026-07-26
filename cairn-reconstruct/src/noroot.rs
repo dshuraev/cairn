@@ -42,12 +42,7 @@ impl SkipKind {
 
 /// Decides whether to skip a chown operation under --no-root.
 /// Under --no-root, always skips; under strict mode, always attempts.
-pub fn decide_chown(
-    no_root: bool,
-    path: PathBuf,
-    uid: u32,
-    gid: u32,
-) -> Option<Skip> {
+pub fn decide_chown(no_root: bool, path: PathBuf, uid: u32, gid: u32) -> Option<Skip> {
     if no_root {
         Some(Skip {
             path,
@@ -62,11 +57,7 @@ pub fn decide_chown(
 
 /// Decides whether to skip a chmod setuid/setgid bit under --no-root.
 /// Unconditionally clears them under --no-root; under strict mode, attempts chmod.
-pub fn decide_chmod_setbits(
-    no_root: bool,
-    path: PathBuf,
-    mode: u32,
-) -> (u32, Option<Skip>) {
+pub fn decide_chmod_setbits(no_root: bool, path: PathBuf, mode: u32) -> (u32, Option<Skip>) {
     const S_ISUID: u32 = 0o4000;
     const S_ISGID: u32 = 0o2000;
 
@@ -95,12 +86,7 @@ pub fn is_privileged_xattr(name: &str) -> bool {
 
 /// Decides whether to skip a mknod operation (device creation) under --no-root.
 /// Under --no-root, always skips; under strict mode, always attempts.
-pub fn decide_mknod(
-    no_root: bool,
-    path: PathBuf,
-    major: u32,
-    minor: u32,
-) -> Option<Skip> {
+pub fn decide_mknod(no_root: bool, path: PathBuf, major: u32, minor: u32) -> Option<Skip> {
     if no_root {
         Some(Skip {
             path,

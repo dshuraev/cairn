@@ -61,12 +61,7 @@ fn chunks_single_source_target_fully_overlapping() {
     let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
-    let sources = vec![(
-        source_root,
-        source_algo,
-        source_bundle,
-        source_path.clone(),
-    )];
+    let sources = vec![(source_root, source_algo, source_bundle, source_path.clone())];
     let target = (target_root, target_algo, target_bundle, target_path.clone());
 
     let result = chunks::compute(
@@ -103,12 +98,7 @@ fn chunks_single_source_target_fully_disjoint() {
     let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
-    let sources = vec![(
-        source_root,
-        source_algo,
-        source_bundle,
-        source_path.clone(),
-    )];
+    let sources = vec![(source_root, source_algo, source_bundle, source_path.clone())];
     let target = (target_root, target_algo, target_bundle, target_path.clone());
 
     let result = chunks::compute(
@@ -136,11 +126,17 @@ fn chunks_partial_overlap() {
     // Create files that will deduplicate
     let shared_content = b"shared content here";
     let (_tmpdir_source, source_path) = create_fixture_bundle(
-        &[("shared.txt", shared_content), ("source_only.txt", b"source only")],
+        &[
+            ("shared.txt", shared_content),
+            ("source_only.txt", b"source only"),
+        ],
         algo,
     );
     let (_tmpdir_target, target_path) = create_fixture_bundle(
-        &[("shared.txt", shared_content), ("target_only.txt", b"target only")],
+        &[
+            ("shared.txt", shared_content),
+            ("target_only.txt", b"target only"),
+        ],
         algo,
     );
 
@@ -152,12 +148,7 @@ fn chunks_partial_overlap() {
     let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
-    let sources = vec![(
-        source_root,
-        source_algo,
-        source_bundle,
-        source_path.clone(),
-    )];
+    let sources = vec![(source_root, source_algo, source_bundle, source_path.clone())];
     let target = (target_root, target_algo, target_bundle, target_path.clone());
 
     let result = chunks::compute(
@@ -255,12 +246,7 @@ fn chunks_only_new_requested() {
     let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
-    let sources = vec![(
-        source_root,
-        source_algo,
-        source_bundle,
-        source_path.clone(),
-    )];
+    let sources = vec![(source_root, source_algo, source_bundle, source_path.clone())];
     let target = (target_root, target_algo, target_bundle, target_path.clone());
 
     let result = chunks::compute(
@@ -296,12 +282,7 @@ fn chunks_no_flags_defaults_to_new() {
     let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
-    let sources = vec![(
-        source_root,
-        source_algo,
-        source_bundle,
-        source_path.clone(),
-    )];
+    let sources = vec![(source_root, source_algo, source_bundle, source_path.clone())];
     let target = (target_root, target_algo, target_bundle, target_path.clone());
 
     let result = chunks::compute(
@@ -339,12 +320,7 @@ fn chunks_algorithm_mismatch_sha256_vs_blake3() {
     let (_version_target, target_root, _, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
-    let sources = vec![(
-        source_root,
-        source_algo,
-        source_bundle,
-        source_path.clone(),
-    )];
+    let sources = vec![(source_root, source_algo, source_bundle, source_path.clone())];
     let target = (target_root, target_algo, target_bundle, target_path.clone());
 
     let result = chunks::compute(
@@ -371,8 +347,7 @@ fn chunks_algorithm_mismatch_sha256_vs_blake3() {
 fn chunks_all_algorithms_matching_sha256() {
     let algo = HashAlgorithm::Sha256;
     let (_tmpdir_source, source_path) = create_fixture_bundle(&[("file.txt", b"content")], algo);
-    let (_tmpdir_target, target_path) =
-        create_fixture_bundle(&[("file.txt", b"content")], algo);
+    let (_tmpdir_target, target_path) = create_fixture_bundle(&[("file.txt", b"content")], algo);
 
     let source_bytes = fs::read(&source_path).expect("failed to read source");
     let (_version_source, source_root, source_algo, source_bundle) =
@@ -382,12 +357,7 @@ fn chunks_all_algorithms_matching_sha256() {
     let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
-    let sources = vec![(
-        source_root,
-        source_algo,
-        source_bundle,
-        source_path.clone(),
-    )];
+    let sources = vec![(source_root, source_algo, source_bundle, source_path.clone())];
     let target = (target_root, target_algo, target_bundle, target_path.clone());
 
     let result = chunks::compute(
@@ -407,8 +377,7 @@ fn chunks_all_algorithms_matching_sha256() {
 fn chunks_all_algorithms_matching_blake3() {
     let algo = HashAlgorithm::Blake3;
     let (_tmpdir_source, source_path) = create_fixture_bundle(&[("file.txt", b"content")], algo);
-    let (_tmpdir_target, target_path) =
-        create_fixture_bundle(&[("file.txt", b"content")], algo);
+    let (_tmpdir_target, target_path) = create_fixture_bundle(&[("file.txt", b"content")], algo);
 
     let source_bytes = fs::read(&source_path).expect("failed to read source");
     let (_version_source, source_root, source_algo, source_bundle) =
@@ -418,12 +387,7 @@ fn chunks_all_algorithms_matching_blake3() {
     let (_version_target, target_root, target_algo, target_bundle) =
         DirTreeBundle::decode_canonical(&target_bytes).expect("failed to decode target");
 
-    let sources = vec![(
-        source_root,
-        source_algo,
-        source_bundle,
-        source_path.clone(),
-    )];
+    let sources = vec![(source_root, source_algo, source_bundle, source_path.clone())];
     let target = (target_root, target_algo, target_bundle, target_path.clone());
 
     let result = chunks::compute(

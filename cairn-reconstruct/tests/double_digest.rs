@@ -29,8 +29,7 @@ fn double_digest_same_source() {
 
     // Hardlinked pair
     fs::write(src_dir.join("hardlink1"), b"shared content").expect("write hardlink1");
-    fs::hard_link(src_dir.join("hardlink1"), src_dir.join("hardlink2"))
-        .expect("create hardlink2");
+    fs::hard_link(src_dir.join("hardlink1"), src_dir.join("hardlink2")).expect("create hardlink2");
 
     // First digest of the source
     let store_dir1 = tmpdir_path.join("store1");
@@ -42,8 +41,7 @@ fn double_digest_same_source() {
         ..Default::default()
     };
 
-    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options)
-        .expect("first digest failed");
+    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options).expect("first digest failed");
     eprintln!("First digest of source: {:?}", root_id1);
 
     // Second digest of the SAME source (no reconstruction)
@@ -51,11 +49,14 @@ fn double_digest_same_source() {
     let bundle_file2 = tmpdir_path.join("bundle2.dirtree");
     let store2 = Store::new(store_dir2.clone(), vec![]);
 
-    let root_id2 = digest(&src_dir, &store2, &bundle_file2, &options)
-        .expect("second digest failed");
+    let root_id2 =
+        digest(&src_dir, &store2, &bundle_file2, &options).expect("second digest failed");
 
     eprintln!("Second digest of source: {:?}", root_id2);
     eprintln!("Do they match? {}", root_id1 == root_id2);
 
-    assert_eq!(root_id1, root_id2, "Two digests of the same source should match");
+    assert_eq!(
+        root_id1, root_id2,
+        "Two digests of the same source should match"
+    );
 }

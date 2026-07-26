@@ -3,10 +3,10 @@ use cairn_core::hash::HashAlgorithm;
 use cairn_digest::{digest, DigestOptions};
 use cairn_reconstruct::{materialize, MaterializeOptions};
 use cairn_store::Store;
+use std::collections::HashMap;
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use tempfile::TempDir;
-use std::collections::HashMap;
 
 #[test]
 fn debug_round_trip() {
@@ -29,13 +29,13 @@ fn debug_round_trip() {
     fs::write(src_dir.join("subdir/nested.txt"), b"nested content").expect("write nested");
 
     // Symlink
-    let symlink_result = std::os::unix::fs::symlink("regular_file.txt", src_dir.join("link_to_file"));
+    let symlink_result =
+        std::os::unix::fs::symlink("regular_file.txt", src_dir.join("link_to_file"));
     eprintln!("Symlink creation: {:?}", symlink_result);
 
     // Hardlinked pair
     fs::write(src_dir.join("hardlink1"), b"shared content").expect("write hardlink1");
-    fs::hard_link(src_dir.join("hardlink1"), src_dir.join("hardlink2"))
-        .expect("create hardlink2");
+    fs::hard_link(src_dir.join("hardlink1"), src_dir.join("hardlink2")).expect("create hardlink2");
 
     if symlink_result.is_ok() {
         let meta = fs::symlink_metadata(src_dir.join("link_to_file")).unwrap();
@@ -54,8 +54,7 @@ fn debug_round_trip() {
         ..Default::default()
     };
 
-    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options)
-        .expect("first digest failed");
+    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options).expect("first digest failed");
     eprintln!("\n=== FIRST DIGEST ===");
     eprintln!("Root ID: {:?}", root_id1);
 
@@ -98,8 +97,8 @@ fn debug_round_trip() {
     let bundle_file2 = tmpdir_path.join("bundle2.dirtree");
     let store2 = Store::new(store_dir2.clone(), vec![]);
 
-    let root_id2 = digest(&reconstruct_dir, &store2, &bundle_file2, &options)
-        .expect("second digest failed");
+    let root_id2 =
+        digest(&reconstruct_dir, &store2, &bundle_file2, &options).expect("second digest failed");
 
     eprintln!("\n=== SECOND DIGEST ===");
     eprintln!("Root ID: {:?}", root_id2);
@@ -114,7 +113,12 @@ fn debug_round_trip() {
 
     eprintln!("\n=== COMPARISON ===");
     eprintln!("Root IDs match: {}", root_id1 == root_id2);
-    eprintln!("Bundle sizes match: {} == {} = {}", bundle_bytes1.len(), bundle_bytes2.len(), bundle_bytes1.len() == bundle_bytes2.len());
+    eprintln!(
+        "Bundle sizes match: {} == {} = {}",
+        bundle_bytes1.len(),
+        bundle_bytes2.len(),
+        bundle_bytes1.len() == bundle_bytes2.len()
+    );
 
     // Simple function to list directory contents
     fn list_dir(path: &std::path::Path) -> Vec<(String, u32)> {
@@ -149,7 +153,11 @@ fn debug_round_trip() {
     eprintln!("\n=== HARDLINK CHECK ===");
     let mut inode_map: HashMap<u64, Vec<String>> = HashMap::new();
 
-    fn collect_inodes(path: &std::path::Path, prefix: &str, inode_map: &mut HashMap<u64, Vec<String>>) {
+    fn collect_inodes(
+        path: &std::path::Path,
+        prefix: &str,
+        inode_map: &mut HashMap<u64, Vec<String>>,
+    ) {
         if let Ok(entries) = fs::read_dir(path) {
             for entry in entries {
                 if let Ok(entry) = entry {
@@ -161,7 +169,10 @@ fn debug_round_trip() {
                         } else {
                             format!("{}/{}", prefix, name)
                         };
-                        inode_map.entry(meta.ino()).or_insert_with(Vec::new).push(full_name.clone());
+                        inode_map
+                            .entry(meta.ino())
+                            .or_insert_with(Vec::new)
+                            .push(full_name.clone());
                         if meta.is_dir() {
                             collect_inodes(&entry_path, &full_name, inode_map);
                         }
@@ -196,11 +207,21 @@ fn debug_round_trip() {
     let hardlink2_recon = fs::symlink_metadata(reconstruct_dir.join("hardlink2")).ok();
 
     if let (Some(h1s), Some(h2s)) = (hardlink1_src, hardlink2_src) {
-        eprintln!("Source hardlink1 inode: {}, hardlink2 inode: {} (share: {})", h1s.ino(), h2s.ino(), h1s.ino() == h2s.ino());
+        eprintln!(
+            "Source hardlink1 inode: {}, hardlink2 inode: {} (share: {})",
+            h1s.ino(),
+            h2s.ino(),
+            h1s.ino() == h2s.ino()
+        );
     }
 
     if let (Some(h1r), Some(h2r)) = (hardlink1_recon, hardlink2_recon) {
-        eprintln!("Reconstructed hardlink1 inode: {}, hardlink2 inode: {} (share: {})", h1r.ino(), h2r.ino(), h1r.ino() == h2r.ino());
+        eprintln!(
+            "Reconstructed hardlink1 inode: {}, hardlink2 inode: {} (share: {})",
+            h1r.ino(),
+            h2r.ino(),
+            h1r.ino() == h2r.ino()
+        );
     }
 
     // Compare detailed metadata by listing files recursively and checking mode/uid/gid
@@ -221,11 +242,17 @@ fn debug_round_trip() {
                             if let Ok(subentries) = fs::read_dir(&path) {
                                 for subentry in subentries {
                                     if let Ok(subentry) = subentry {
-                                        let subname = subentry.file_name().to_string_lossy().into_owned();
+                                        let subname =
+                                            subentry.file_name().to_string_lossy().into_owned();
                                         let subpath = subentry.path();
                                         if let Ok(submeta) = fs::symlink_metadata(&subpath) {
                                             let full_name = format!("{}/{}", name, subname);
-                                            files.push((full_name, submeta.mode(), submeta.uid(), submeta.gid()));
+                                            files.push((
+                                                full_name,
+                                                submeta.mode(),
+                                                submeta.uid(),
+                                                submeta.gid(),
+                                            ));
                                         }
                                     }
                                 }
@@ -262,12 +289,18 @@ fn debug_round_trip() {
             any_diff = true;
             eprintln!("  DIFF at index {}:", i);
             if let Some((name, mode, uid, gid)) = src {
-                eprintln!("    SRC:  {} mode=0o{:o} uid={} gid={}", name, mode, uid, gid);
+                eprintln!(
+                    "    SRC:  {} mode=0o{:o} uid={} gid={}",
+                    name, mode, uid, gid
+                );
             } else {
                 eprintln!("    SRC:  (none)");
             }
             if let Some((name, mode, uid, gid)) = recon {
-                eprintln!("    RECON: {} mode=0o{:o} uid={} gid={}", name, mode, uid, gid);
+                eprintln!(
+                    "    RECON: {} mode=0o{:o} uid={} gid={}",
+                    name, mode, uid, gid
+                );
             } else {
                 eprintln!("    RECON: (none)");
             }

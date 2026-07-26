@@ -1,7 +1,7 @@
 use cairn_core::bundle::DirTreeBundle;
 use cairn_core::hash::HashAlgorithm;
-use cairn_store::Store;
 use cairn_digest::{digest, DigestOptions};
+use cairn_store::Store;
 use std::path::PathBuf;
 
 fn unique_temp_dir(label: &str) -> PathBuf {

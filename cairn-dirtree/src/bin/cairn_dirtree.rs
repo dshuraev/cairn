@@ -150,10 +150,14 @@ const MAX_SUPPORTED_BUNDLE_VERSION: u8 = 0;
 /// Reads and decodes a dirtree bundle from a file.
 fn read_bundle(
     path: &Path,
-) -> anyhow::Result<(cairn_core::id::DirTreeID, cairn_core::hash::HashAlgorithm, DirTreeBundle)> {
+) -> anyhow::Result<(
+    cairn_core::id::DirTreeID,
+    cairn_core::hash::HashAlgorithm,
+    DirTreeBundle,
+)> {
     let bytes = fs::read(path).context("failed to read bundle file")?;
-    let (version, root_id, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .context("failed to decode bundle")?;
+    let (version, root_id, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).context("failed to decode bundle")?;
     if version > MAX_SUPPORTED_BUNDLE_VERSION {
         anyhow::bail!(
             "unsupported bundle version: {} (maximum supported: {})",
@@ -330,34 +334,21 @@ mod tests {
 
     #[test]
     fn cli_parses_symlinks_with_input() {
-        let result = Cli::try_parse_from(vec![
-            "cairn-dirtree",
-            "symlinks",
-            "--input",
-            "/tmp/bundle",
-        ]);
+        let result =
+            Cli::try_parse_from(vec!["cairn-dirtree", "symlinks", "--input", "/tmp/bundle"]);
         assert!(result.is_ok());
     }
 
     #[test]
     fn cli_parses_special_with_input() {
-        let result = Cli::try_parse_from(vec![
-            "cairn-dirtree",
-            "special",
-            "--input",
-            "/tmp/bundle",
-        ]);
+        let result =
+            Cli::try_parse_from(vec!["cairn-dirtree", "special", "--input", "/tmp/bundle"]);
         assert!(result.is_ok());
     }
 
     #[test]
     fn cli_parses_xattrs_with_input() {
-        let result = Cli::try_parse_from(vec![
-            "cairn-dirtree",
-            "xattrs",
-            "--input",
-            "/tmp/bundle",
-        ]);
+        let result = Cli::try_parse_from(vec!["cairn-dirtree", "xattrs", "--input", "/tmp/bundle"]);
         assert!(result.is_ok());
     }
 
@@ -381,12 +372,8 @@ mod tests {
 
     #[test]
     fn cli_parses_summary_with_input() {
-        let result = Cli::try_parse_from(vec![
-            "cairn-dirtree",
-            "summary",
-            "--input",
-            "/tmp/bundle",
-        ]);
+        let result =
+            Cli::try_parse_from(vec!["cairn-dirtree", "summary", "--input", "/tmp/bundle"]);
         assert!(result.is_ok());
     }
 
@@ -498,7 +485,10 @@ mod tests {
         ]);
         assert!(result.is_ok());
         let cli = result.unwrap();
-        if let Command::Chunks { new, old, common, .. } = &cli.command {
+        if let Command::Chunks {
+            new, old, common, ..
+        } = &cli.command
+        {
             assert!(*new);
             assert!(*old);
             assert!(*common);
@@ -509,15 +499,13 @@ mod tests {
 
     #[test]
     fn cli_rejects_chunks_without_source() {
-        let result =
-            Cli::try_parse_from(vec!["cairn-dirtree", "chunks", "-t", "/tmp/target"]);
+        let result = Cli::try_parse_from(vec!["cairn-dirtree", "chunks", "-t", "/tmp/target"]);
         assert!(result.is_err());
     }
 
     #[test]
     fn cli_rejects_chunks_without_target() {
-        let result =
-            Cli::try_parse_from(vec!["cairn-dirtree", "chunks", "-s", "/tmp/source"]);
+        let result = Cli::try_parse_from(vec!["cairn-dirtree", "chunks", "-s", "/tmp/source"]);
         assert!(result.is_err());
     }
 }

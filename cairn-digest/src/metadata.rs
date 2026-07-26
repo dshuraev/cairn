@@ -1,10 +1,10 @@
 //! Builds [`cairn_core::model::Metadata`] from filesystem metadata (§3, §4.4).
 
-use cairn_core::model::Metadata;
 use crate::error::DigestError;
-use std::os::unix::fs::MetadataExt;
+use cairn_core::model::Metadata;
 use std::ffi::OsStr;
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::MetadataExt;
 use std::path::Path;
 
 /// Builds a `Metadata` object from a file's filesystem metadata and extended attributes.

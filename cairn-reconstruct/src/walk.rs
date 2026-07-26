@@ -25,21 +25,23 @@ where
     // Visit each node
     for node in dirtree_obj.nodes() {
         // Get node's Metadata (for structure, not for chunks)
-        let _metadata = bundle
-            .get(&node.metadata_id.0)
-            .ok_or(ReconstructError::MissingBundleObject {
-                id: node.metadata_id.0,
-            })?;
+        let _metadata =
+            bundle
+                .get(&node.metadata_id.0)
+                .ok_or(ReconstructError::MissingBundleObject {
+                    id: node.metadata_id.0,
+                })?;
 
         // Process based on NodeKind
         match &node.kind {
             NodeKind::File { file_index_id } => {
                 // Get FileIndex
-                let file_index_obj = bundle
-                    .get(&file_index_id.0)
-                    .ok_or(ReconstructError::MissingBundleObject {
-                        id: file_index_id.0,
-                    })?;
+                let file_index_obj =
+                    bundle
+                        .get(&file_index_id.0)
+                        .ok_or(ReconstructError::MissingBundleObject {
+                            id: file_index_id.0,
+                        })?;
                 let (_kind, file_index_bytes) = file_index_obj;
                 let file_index = cairn_core::model::FileIndex::decode_canonical(file_index_bytes)?;
 

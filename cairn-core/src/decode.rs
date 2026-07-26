@@ -29,7 +29,9 @@ impl fmt::Display for DecodeError {
             DecodeError::InvalidUtf8 => write!(f, "invalid UTF-8 in encoded string"),
             DecodeError::InvalidTag(tag) => write!(f, "invalid tag byte: {tag}"),
             DecodeError::TrailingBytes => write!(f, "trailing bytes after decoded object"),
-            DecodeError::UnsupportedBundleVersion(v) => write!(f, "unsupported bundle version: {v}"),
+            DecodeError::UnsupportedBundleVersion(v) => {
+                write!(f, "unsupported bundle version: {v}")
+            }
         }
     }
 }
@@ -51,7 +53,10 @@ impl<'a> Decoder<'a> {
 
     fn take(&mut self, n: usize) -> Result<&'a [u8], DecodeError> {
         let end = self.pos.checked_add(n).ok_or(DecodeError::UnexpectedEof)?;
-        let slice = self.bytes.get(self.pos..end).ok_or(DecodeError::UnexpectedEof)?;
+        let slice = self
+            .bytes
+            .get(self.pos..end)
+            .ok_or(DecodeError::UnexpectedEof)?;
         self.pos = end;
         Ok(slice)
     }
@@ -63,7 +68,10 @@ impl<'a> Decoder<'a> {
 
     /// Reads a little-endian `u32`.
     pub fn read_u32(&mut self) -> Result<u32, DecodeError> {
-        let bytes: [u8; 4] = self.take(4)?.try_into().map_err(|_| DecodeError::UnexpectedEof)?;
+        let bytes: [u8; 4] = self
+            .take(4)?
+            .try_into()
+            .map_err(|_| DecodeError::UnexpectedEof)?;
         Ok(u32::from_le_bytes(bytes))
     }
 
@@ -81,7 +89,10 @@ impl<'a> Decoder<'a> {
 
     /// Reads a raw 32-byte hash, with no length prefix.
     pub fn read_hash(&mut self) -> Result<Hash, DecodeError> {
-        let bytes: [u8; 32] = self.take(32)?.try_into().map_err(|_| DecodeError::UnexpectedEof)?;
+        let bytes: [u8; 32] = self
+            .take(32)?
+            .try_into()
+            .map_err(|_| DecodeError::UnexpectedEof)?;
         Ok(Hash(bytes))
     }
 

@@ -56,7 +56,12 @@ impl fmt::Display for ReconstructError {
                 write!(f, "missing {} chunks from store", ids.len())
             }
             ReconstructError::PrivilegeRequired { path, op } => {
-                write!(f, "privileged operation required at {}: {}", path.display(), op)
+                write!(
+                    f,
+                    "privileged operation required at {}: {}",
+                    path.display(),
+                    op
+                )
             }
             ReconstructError::OutputExists { path } => {
                 write!(f, "output path already exists: {}", path.display())

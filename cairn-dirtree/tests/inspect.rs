@@ -21,21 +21,18 @@ fn create_fixture_bundle() -> (TempDir, PathBuf) {
     fs::create_dir(&src).expect("failed to create src");
 
     // Create a regular file
-    fs::write(src.join("hello.txt"), b"hello world")
-        .expect("failed to write hello.txt");
+    fs::write(src.join("hello.txt"), b"hello world").expect("failed to write hello.txt");
 
     // Create a subdirectory with a file
     let subdir = src.join("subdir");
     fs::create_dir(&subdir).expect("failed to create subdir");
-    fs::write(subdir.join("nested.txt"), b"nested content")
-        .expect("failed to write nested.txt");
+    fs::write(subdir.join("nested.txt"), b"nested content").expect("failed to write nested.txt");
 
     // Create a symlink (if on Unix)
     #[cfg(unix)]
     {
         use std::os::unix::fs as unix_fs;
-        unix_fs::symlink("hello.txt", src.join("link_to_hello"))
-            .expect("failed to create symlink");
+        unix_fs::symlink("hello.txt", src.join("link_to_hello")).expect("failed to create symlink");
     }
 
     // Create two hardlinked files
@@ -75,15 +72,18 @@ fn ls_includes_all_files_in_txt_mode() {
 
     // Read bundle and run walk
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let output = cairn_dirtree::render::render_ls(&nodes, &root.0, algo, OutputFormat::Txt);
 
     // Verify expected files are in output
-    assert!(output.contains("hello.txt"), "output should contain hello.txt");
+    assert!(
+        output.contains("hello.txt"),
+        "output should contain hello.txt"
+    );
     assert!(output.contains("subdir"), "output should contain subdir");
     assert!(
         output.contains("subdir/nested.txt"),
@@ -100,15 +100,15 @@ fn ls_json_is_valid_json() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let output = cairn_dirtree::render::render_ls(&nodes, &root.0, algo, OutputFormat::Json);
 
-    let json: serde_json::Value = serde_json::from_str(&output)
-        .expect("ls json output should be valid JSON");
+    let json: serde_json::Value =
+        serde_json::from_str(&output).expect("ls json output should be valid JSON");
 
     assert!(json["entries"].is_array(), "entries should be an array");
     assert!(json["root"].is_string(), "root should be a string");
@@ -119,10 +119,10 @@ fn stat_on_existing_path_succeeds() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     // Find the hello.txt node
     let node = nodes
@@ -141,10 +141,10 @@ fn stat_json_on_file_includes_chunks() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let node = nodes
         .iter()
@@ -162,10 +162,10 @@ fn tree_shows_hierarchical_structure() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let output = cairn_dirtree::render::render_tree(&nodes, OutputFormat::Txt);
 
@@ -173,7 +173,10 @@ fn tree_shows_hierarchical_structure() {
         output.contains("subdir/"),
         "tree should show subdir with trailing slash"
     );
-    assert!(output.contains("nested.txt"), "tree should show nested files");
+    assert!(
+        output.contains("nested.txt"),
+        "tree should show nested files"
+    );
 }
 
 #[test]
@@ -181,10 +184,10 @@ fn links_shows_hardlinked_pairs() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let output = cairn_dirtree::render::render_links(&nodes, algo, OutputFormat::Txt);
 
@@ -197,10 +200,10 @@ fn summary_counts_match_fixture() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let summary = cairn_dirtree::render::Summary::compute(&nodes);
 
@@ -219,16 +222,16 @@ fn summary_json_is_valid() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let summary = cairn_dirtree::render::Summary::compute(&nodes);
     let output = cairn_dirtree::render::render_summary(&summary, OutputFormat::Json);
 
-    let json: serde_json::Value = serde_json::from_str(&output)
-        .expect("summary json should be valid");
+    let json: serde_json::Value =
+        serde_json::from_str(&output).expect("summary json should be valid");
 
     assert!(json["files"].is_number());
     assert!(json["dirs"].is_number());
@@ -241,10 +244,10 @@ fn xattrs_output_is_valid_json() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let output = cairn_dirtree::render::render_xattrs(&nodes, None, OutputFormat::Json);
 
@@ -259,10 +262,10 @@ fn xattrs_txt_generates_output() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let output = cairn_dirtree::render::render_xattrs(&nodes, None, OutputFormat::Txt);
 
@@ -289,10 +292,10 @@ fn symlinks_output_includes_target() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let output = cairn_dirtree::render::render_symlinks(&nodes, OutputFormat::Txt);
 
@@ -306,10 +309,10 @@ fn special_nodes_output_format() {
     let (_tmpdir, bundle_path) = create_fixture_bundle();
 
     let bytes = fs::read(&bundle_path).expect("failed to read bundle");
-    let (_version, root, algo, bundle) = DirTreeBundle::decode_canonical(&bytes)
-        .expect("failed to decode bundle");
-    let nodes = cairn_dirtree::walk::resolve(root, algo, &bundle)
-        .expect("failed to resolve bundle");
+    let (_version, root, algo, bundle) =
+        DirTreeBundle::decode_canonical(&bytes).expect("failed to decode bundle");
+    let nodes =
+        cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
     let output = cairn_dirtree::render::render_special(&nodes, OutputFormat::Txt);
 
@@ -335,8 +338,11 @@ fn binary_handles_closed_stdout_without_panic() {
     fs::create_dir(&subdir).expect("failed to create subdir");
     for i in 0..50 {
         let fname = format!("nested_{:03}.txt", i);
-        fs::write(subdir.join(&fname), format!("nested content {}", i).as_bytes())
-            .expect("failed to write nested file");
+        fs::write(
+            subdir.join(&fname),
+            format!("nested content {}", i).as_bytes(),
+        )
+        .expect("failed to write nested file");
     }
 
     // Run digest to produce a bundle

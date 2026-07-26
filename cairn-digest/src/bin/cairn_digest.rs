@@ -43,7 +43,6 @@ impl HashAlgoArg {
     }
 }
 
-
 /// CLI for cairn-digest: walk a directory, chunk its files, deduplicate,
 /// and produce a dirtree bundle and chunk store (§2 of cairn-digest.md).
 #[derive(Parser, Debug)]
@@ -140,17 +139,14 @@ fn run(cli: Cli) -> anyhow::Result<()> {
 
     let algo = cli.hash.to_algorithm();
 
-    let options = DigestOptions {
-        chunk_config,
-        algo,
-    };
+    let options = DigestOptions { chunk_config, algo };
 
     // Create the store.
     let store = Store::new(cli.store.clone(), cli.seed_store.clone());
 
     // Run the digest operation.
-    let root_id = digest(&cli.src_dir, &store, &cli.out, &options)
-        .context("cairn-digest failed")?;
+    let root_id =
+        digest(&cli.src_dir, &store, &cli.out, &options).context("cairn-digest failed")?;
 
     // Print the resulting DirTreeID to stdout via its Display impl.
     println!("{}", root_id);
@@ -267,10 +263,7 @@ mod tests {
         };
 
         let result = run(cli_bad_min);
-        assert!(
-            result.is_err(),
-            "run should reject min_chunk > avg_chunk"
-        );
+        assert!(result.is_err(), "run should reject min_chunk > avg_chunk");
         assert!(
             result
                 .unwrap_err()
@@ -292,10 +285,7 @@ mod tests {
         };
 
         let result = run(cli_bad_avg);
-        assert!(
-            result.is_err(),
-            "run should reject avg_chunk > max_chunk"
-        );
+        assert!(result.is_err(), "run should reject avg_chunk > max_chunk");
         assert!(
             result
                 .unwrap_err()
@@ -382,5 +372,4 @@ mod tests {
             "error message should mention the fastcdc minimum (1024)"
         );
     }
-
 }

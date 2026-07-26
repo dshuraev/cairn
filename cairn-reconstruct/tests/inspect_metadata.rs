@@ -33,8 +33,7 @@ fn inspect_metadata_objects() {
 
     // Hardlinked pair
     fs::write(src_dir.join("hardlink1"), b"shared content").expect("write hardlink1");
-    fs::hard_link(src_dir.join("hardlink1"), src_dir.join("hardlink2"))
-        .expect("create hardlink2");
+    fs::hard_link(src_dir.join("hardlink1"), src_dir.join("hardlink2")).expect("create hardlink2");
 
     // First digest
     let store_dir1 = tmpdir_path.join("store1");
@@ -46,8 +45,7 @@ fn inspect_metadata_objects() {
         ..Default::default()
     };
 
-    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options)
-        .expect("first digest failed");
+    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options).expect("first digest failed");
     eprintln!("First digest root ID: {:?}", root_id1);
 
     // Read and inspect the first bundle
@@ -65,8 +63,14 @@ fn inspect_metadata_objects() {
 
     eprintln!("\nBundle1 metadata objects ({}):", bundle1_metadata.len());
     for (meta, hash_hex) in &bundle1_metadata {
-        eprintln!("  [{}] mode=0o{:o} uid={} gid={} xattrs={}",
-            hash_hex, meta.mode(), meta.uid(), meta.gid(), meta.xattrs().len());
+        eprintln!(
+            "  [{}] mode=0o{:o} uid={} gid={} xattrs={}",
+            hash_hex,
+            meta.mode(),
+            meta.uid(),
+            meta.gid(),
+            meta.xattrs().len()
+        );
     }
 
     // Reconstruct
@@ -88,8 +92,8 @@ fn inspect_metadata_objects() {
     let bundle_file2 = tmpdir_path.join("bundle2.dirtree");
     let store2 = Store::new(store_dir2.clone(), vec![]);
 
-    let root_id2 = digest(&reconstruct_dir, &store2, &bundle_file2, &options)
-        .expect("second digest failed");
+    let root_id2 =
+        digest(&reconstruct_dir, &store2, &bundle_file2, &options).expect("second digest failed");
 
     eprintln!("\nSecond digest root ID: {:?}", root_id2);
 
@@ -108,21 +112,41 @@ fn inspect_metadata_objects() {
 
     eprintln!("\nBundle2 metadata objects ({}):", bundle2_metadata.len());
     for (meta, hash_hex) in &bundle2_metadata {
-        eprintln!("  [{}] mode=0o{:o} uid={} gid={} xattrs={}",
-            hash_hex, meta.mode(), meta.uid(), meta.gid(), meta.xattrs().len());
+        eprintln!(
+            "  [{}] mode=0o{:o} uid={} gid={} xattrs={}",
+            hash_hex,
+            meta.mode(),
+            meta.uid(),
+            meta.gid(),
+            meta.xattrs().len()
+        );
     }
 
     eprintln!("\nComparison:");
     if bundle1_metadata.len() != bundle2_metadata.len() {
-        eprintln!("  Different number of metadata objects: {} vs {}", bundle1_metadata.len(), bundle2_metadata.len());
+        eprintln!(
+            "  Different number of metadata objects: {} vs {}",
+            bundle1_metadata.len(),
+            bundle2_metadata.len()
+        );
     } else {
         for i in 0..bundle1_metadata.len() {
             let (meta1, hash1) = &bundle1_metadata[i];
             let (meta2, hash2) = &bundle2_metadata[i];
             if meta1 != meta2 {
                 eprintln!("  Metadata #{} differs:", i);
-                eprintln!("    Bundle1: mode=0o{:o} uid={} gid={}", meta1.mode(), meta1.uid(), meta1.gid());
-                eprintln!("    Bundle2: mode=0o{:o} uid={} gid={}", meta2.mode(), meta2.uid(), meta2.gid());
+                eprintln!(
+                    "    Bundle1: mode=0o{:o} uid={} gid={}",
+                    meta1.mode(),
+                    meta1.uid(),
+                    meta1.gid()
+                );
+                eprintln!(
+                    "    Bundle2: mode=0o{:o} uid={} gid={}",
+                    meta2.mode(),
+                    meta2.uid(),
+                    meta2.gid()
+                );
             } else if hash1 != hash2 {
                 eprintln!("  Metadata #{} has different hash (encoding differs):", i);
             }

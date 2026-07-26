@@ -11,12 +11,12 @@ use crate::chunk::{chunk_file, ChunkConfig};
 use crate::error::DigestError;
 use crate::hardlink::{HardlinkTracker, Inode};
 use crate::metadata::build_metadata;
-use cairn_store::Store;
 use crate::walk::{RawKind, WalkEntry};
 use cairn_core::bundle::{DirTreeBundle, ObjectKind};
 use cairn_core::hash::HashAlgorithm;
 use cairn_core::id::{DirTreeID, FileIndexID};
 use cairn_core::model::{DirTree, FileIndex, Node, NodeKind};
+use cairn_store::Store;
 use std::collections::HashMap;
 use std::os::unix::fs::MetadataExt;
 
@@ -57,7 +57,14 @@ pub fn build_tree(
     bundle: &mut DirTreeBundle,
 ) -> Result<DirTreeID, DigestError> {
     let mut file_index_cache: HashMap<Inode, FileIndexID> = HashMap::new();
-    build_dir(walked, tracker, store, options, &mut file_index_cache, bundle)
+    build_dir(
+        walked,
+        tracker,
+        store,
+        options,
+        &mut file_index_cache,
+        bundle,
+    )
 }
 
 fn build_dir(
@@ -151,7 +158,8 @@ fn build_node(
     // For non-file nodes and standalone files, this returns None
     let link_group = if let RawKind::File = &entry.kind {
         // For files, look up by inode to get the FileIndex (cached or computed above)
-        file_index_cache.get(&inode)
+        file_index_cache
+            .get(&inode)
             .and_then(|file_index_id| tracker.register_file_index(inode, *file_index_id))
     } else {
         None
@@ -202,8 +210,24 @@ mod tests {
         let file_a = &dir_a.children[0];
         let file_b = &dir_b.children[0];
 
-        let node_a = build_node(file_a, &mut tracker, &store, &options, &mut cache, &mut bundle).unwrap();
-        let node_b = build_node(file_b, &mut tracker, &store, &options, &mut cache, &mut bundle).unwrap();
+        let node_a = build_node(
+            file_a,
+            &mut tracker,
+            &store,
+            &options,
+            &mut cache,
+            &mut bundle,
+        )
+        .unwrap();
+        let node_b = build_node(
+            file_b,
+            &mut tracker,
+            &store,
+            &options,
+            &mut cache,
+            &mut bundle,
+        )
+        .unwrap();
 
         assert!(node_a.link_group.is_some());
         assert_eq!(node_a.link_group, node_b.link_group);

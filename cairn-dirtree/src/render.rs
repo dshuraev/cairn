@@ -175,11 +175,7 @@ struct StatXattr {
 }
 
 /// Renders `stat <path>` output for a single node.
-pub fn render_stat(
-    node: &ResolvedNode,
-    algo: HashAlgorithm,
-    format: OutputFormat,
-) -> String {
+pub fn render_stat(node: &ResolvedNode, algo: HashAlgorithm, format: OutputFormat) -> String {
     match format {
         OutputFormat::Txt => render_stat_txt(node),
         OutputFormat::Json => render_stat_json(node, algo),
@@ -274,9 +270,10 @@ fn render_stat_json(node: &ResolvedNode, algo: HashAlgorithm) -> String {
             ),
         ),
         crate::walk::ResolvedKind::Symlink { target } => (Some(target.clone()), None, None, None),
-        crate::walk::ResolvedKind::Device { major: maj, minor: min } => {
-            (None, Some(*maj), Some(*min), None)
-        }
+        crate::walk::ResolvedKind::Device {
+            major: maj,
+            minor: min,
+        } => (None, Some(*maj), Some(*min), None),
         _ => (None, None, None, None),
     };
 
@@ -345,11 +342,7 @@ fn render_tree_txt(nodes: &[ResolvedNode]) -> String {
 
 fn render_tree_json(nodes: &[ResolvedNode]) -> String {
     // Build tree structure from flat list recursively.
-    fn build_tree(
-        nodes: &[ResolvedNode],
-        prefix: &str,
-        depth: usize,
-    ) -> Vec<TreeNode> {
+    fn build_tree(nodes: &[ResolvedNode], prefix: &str, depth: usize) -> Vec<TreeNode> {
         let mut result = Vec::new();
         let mut seen = std::collections::HashSet::new();
 
@@ -480,9 +473,7 @@ fn render_links_json(nodes: &[ResolvedNode], algo: HashAlgorithm) -> String {
 
     group_vec.sort_by(|a, b| a.link_group.cmp(&b.link_group));
 
-    let output = LinksJson {
-        groups: group_vec,
-    };
+    let output = LinksJson { groups: group_vec };
 
     serde_json::to_string_pretty(&output).unwrap_or_default()
 }
@@ -594,34 +585,26 @@ fn render_special_txt(nodes: &[ResolvedNode]) -> String {
 fn render_special_json(nodes: &[ResolvedNode]) -> String {
     let special: Vec<SpecialEntry> = nodes
         .iter()
-        .filter_map(|node| {
-            match &node.kind {
-                crate::walk::ResolvedKind::Device { major, minor } => {
-                    Some(SpecialEntry {
-                        path: node.path.clone(),
-                        kind: "device".to_string(),
-                        major: Some(*major),
-                        minor: Some(*minor),
-                    })
-                }
-                crate::walk::ResolvedKind::Fifo => {
-                    Some(SpecialEntry {
-                        path: node.path.clone(),
-                        kind: "fifo".to_string(),
-                        major: None,
-                        minor: None,
-                    })
-                }
-                crate::walk::ResolvedKind::Socket => {
-                    Some(SpecialEntry {
-                        path: node.path.clone(),
-                        kind: "socket".to_string(),
-                        major: None,
-                        minor: None,
-                    })
-                }
-                _ => None,
-            }
+        .filter_map(|node| match &node.kind {
+            crate::walk::ResolvedKind::Device { major, minor } => Some(SpecialEntry {
+                path: node.path.clone(),
+                kind: "device".to_string(),
+                major: Some(*major),
+                minor: Some(*minor),
+            }),
+            crate::walk::ResolvedKind::Fifo => Some(SpecialEntry {
+                path: node.path.clone(),
+                kind: "fifo".to_string(),
+                major: None,
+                minor: None,
+            }),
+            crate::walk::ResolvedKind::Socket => Some(SpecialEntry {
+                path: node.path.clone(),
+                kind: "socket".to_string(),
+                major: None,
+                minor: None,
+            }),
+            _ => None,
         })
         .collect();
 
@@ -651,11 +634,7 @@ struct XattrsJson {
 }
 
 /// Renders `xattrs [--prefix <name>]` output.
-pub fn render_xattrs(
-    nodes: &[ResolvedNode],
-    prefix: Option<&str>,
-    format: OutputFormat,
-) -> String {
+pub fn render_xattrs(nodes: &[ResolvedNode], prefix: Option<&str>, format: OutputFormat) -> String {
     match format {
         OutputFormat::Txt => render_xattrs_txt(nodes, prefix),
         OutputFormat::Json => render_xattrs_json(nodes, prefix),
@@ -883,17 +862,20 @@ fn render_chunks_txt(result: &crate::chunks::ChunksResult, algo: HashAlgorithm) 
 }
 
 fn render_chunks_json(result: &crate::chunks::ChunksResult, algo: HashAlgorithm) -> String {
-    let new = result.new.as_ref().map(|chunks| {
-        chunks.iter().map(|c| id_str(algo, &c.0)).collect()
-    });
+    let new = result
+        .new
+        .as_ref()
+        .map(|chunks| chunks.iter().map(|c| id_str(algo, &c.0)).collect());
 
-    let old = result.old.as_ref().map(|chunks| {
-        chunks.iter().map(|c| id_str(algo, &c.0)).collect()
-    });
+    let old = result
+        .old
+        .as_ref()
+        .map(|chunks| chunks.iter().map(|c| id_str(algo, &c.0)).collect());
 
-    let common = result.common.as_ref().map(|chunks| {
-        chunks.iter().map(|c| id_str(algo, &c.0)).collect()
-    });
+    let common = result
+        .common
+        .as_ref()
+        .map(|chunks| chunks.iter().map(|c| id_str(algo, &c.0)).collect());
 
     let output = ChunksJsonOutput { new, old, common };
     serde_json::to_string_pretty(&output).unwrap_or_default()
@@ -1162,10 +1144,7 @@ mod tests {
         let dev_node = make_node(
             "tty",
             "tty",
-            crate::walk::ResolvedKind::Device {
-                major: 5,
-                minor: 0,
-            },
+            crate::walk::ResolvedKind::Device { major: 5, minor: 0 },
             0o20666,
             0,
             0,

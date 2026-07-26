@@ -245,7 +245,10 @@ mod tests {
         // Verify the final committed object is not corrupted:
         // re-hash the bytes on disk and compare against expected ID
         let final_obj_path = Store::object_path(&store.primary, HashAlgorithm::Sha256, &id);
-        assert!(final_obj_path.exists(), "Object should exist after concurrent writes");
+        assert!(
+            final_obj_path.exists(),
+            "Object should exist after concurrent writes"
+        );
 
         let stored_bytes = fs::read(&final_obj_path).unwrap();
         let stored_hash = hash_bytes(HashAlgorithm::Sha256, &stored_bytes);

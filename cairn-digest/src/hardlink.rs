@@ -73,7 +73,8 @@ impl HardlinkTracker {
         e.write_hash(&file_index_id.0);
         let link_group_id = LinkGroupID(hash_bytes(self.algo, &e.into_bytes()));
 
-        self.file_index_to_link_group.insert(file_index_id, link_group_id);
+        self.file_index_to_link_group
+            .insert(file_index_id, link_group_id);
         Some(link_group_id)
     }
 

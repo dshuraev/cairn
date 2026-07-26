@@ -1,8 +1,8 @@
-use cairn_core::hash::{hash_bytes, HashAlgorithm};
 use cairn_core::bundle::DirTreeBundle;
+use cairn_core::hash::{hash_bytes, HashAlgorithm};
 use cairn_digest::build::{build_tree, DigestOptions};
-use cairn_store::Store;
 use cairn_digest::walk::walk_tree;
+use cairn_store::Store;
 use std::path::PathBuf;
 
 fn unique_temp_dir(label: &str) -> PathBuf {
@@ -27,11 +27,21 @@ fn seed_store_dedup_avoids_writing_content_already_present_in_the_seed() {
     let store_a_dir = unique_temp_dir("store-a");
     let store_a = Store::new(store_a_dir.clone(), vec![]);
     let (walked_a, mut tracker_a) = walk_tree(&source_a, options.algo).unwrap();
-    build_tree(&walked_a, &mut tracker_a, &store_a, &options, &mut DirTreeBundle::new()).unwrap();
+    build_tree(
+        &walked_a,
+        &mut tracker_a,
+        &store_a,
+        &options,
+        &mut DirTreeBundle::new(),
+    )
+    .unwrap();
 
     let chunk_id = hash_bytes(HashAlgorithm::Sha256, SHARED_CONTENT);
     assert!(
-        store_a_dir.join("sha256").join(chunk_id.to_string()).exists(),
+        store_a_dir
+            .join("sha256")
+            .join(chunk_id.to_string())
+            .exists(),
         "store A must contain the shared chunk after building source A"
     );
 
@@ -42,13 +52,26 @@ fn seed_store_dedup_avoids_writing_content_already_present_in_the_seed() {
     let store_b_dir = unique_temp_dir("store-b");
     let store_b = Store::new(store_b_dir.clone(), vec![store_a_dir.clone()]);
     let (walked_b, mut tracker_b) = walk_tree(&source_b, options.algo).unwrap();
-    build_tree(&walked_b, &mut tracker_b, &store_b, &options, &mut DirTreeBundle::new()).unwrap();
+    build_tree(
+        &walked_b,
+        &mut tracker_b,
+        &store_b,
+        &options,
+        &mut DirTreeBundle::new(),
+    )
+    .unwrap();
 
     // The seed lookup must have found chunk C in store A and skipped writing
     // it into store B (§6.1) -- it should exist only in A, never in B.
-    assert!(store_a_dir.join("sha256").join(chunk_id.to_string()).exists());
+    assert!(store_a_dir
+        .join("sha256")
+        .join(chunk_id.to_string())
+        .exists());
     assert!(
-        !store_b_dir.join("sha256").join(chunk_id.to_string()).exists(),
+        !store_b_dir
+            .join("sha256")
+            .join(chunk_id.to_string())
+            .exists(),
         "chunk already present in the seed store must not be duplicated into the primary store"
     );
 

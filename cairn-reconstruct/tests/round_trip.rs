@@ -41,8 +41,7 @@ fn round_trip_digest_reconstruct_digest() {
 
     // Hardlinked pair
     fs::write(src_dir.join("hardlink1"), b"shared content").expect("write hardlink1");
-    fs::hard_link(src_dir.join("hardlink1"), src_dir.join("hardlink2"))
-        .expect("create hardlink2");
+    fs::hard_link(src_dir.join("hardlink1"), src_dir.join("hardlink2")).expect("create hardlink2");
 
     // Skip FIFO for test - FIFOs may not be supported in all test environments
     // and would cause I1 mismatch if creation fails during reconstruction
@@ -60,8 +59,7 @@ fn round_trip_digest_reconstruct_digest() {
         ..Default::default()
     };
 
-    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options)
-        .expect("first digest failed");
+    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options).expect("first digest failed");
 
     // Read the first bundle
     let bundle_bytes1 = fs::read(&bundle_file1).expect("read bundle1");
@@ -92,8 +90,8 @@ fn round_trip_digest_reconstruct_digest() {
     let bundle_file2 = tmpdir_path.join("bundle2.dirtree");
     let store2 = Store::new(store_dir2.clone(), vec![]);
 
-    let root_id2 = digest(&reconstruct_dir, &store2, &bundle_file2, &options)
-        .expect("second digest failed");
+    let root_id2 =
+        digest(&reconstruct_dir, &store2, &bundle_file2, &options).expect("second digest failed");
 
     // I1 invariant: root IDs must match
     assert_eq!(
@@ -126,8 +124,8 @@ fn round_trip_directory_setgid_ordering() {
     // Try to set the mode with setgid bit using libc
     // This may fail in some test environments (e.g., if the process doesn't own the group)
     // but the important thing is testing the ordering when it does work
-    let cstr_path = std::ffi::CString::new(subdir.as_os_str().as_bytes())
-        .expect("path contains null byte");
+    let cstr_path =
+        std::ffi::CString::new(subdir.as_os_str().as_bytes()).expect("path contains null byte");
     let _ = unsafe { libc::chmod(cstr_path.as_ptr(), mode_with_setgid as libc::mode_t) };
 
     // Add a file inside the setgid directory so it's non-empty
@@ -143,8 +141,7 @@ fn round_trip_directory_setgid_ordering() {
         ..Default::default()
     };
 
-    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options)
-        .expect("first digest failed");
+    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options).expect("first digest failed");
 
     // Read bundle
     let bundle_bytes1 = fs::read(&bundle_file1).expect("read bundle");
@@ -186,8 +183,8 @@ fn round_trip_directory_setgid_ordering() {
     let bundle_file2 = tmpdir_path.join("bundle_setgid2.dirtree");
     let store2 = Store::new(store_dir2.clone(), vec![]);
 
-    let root_id2 = digest(&reconstruct_dir, &store2, &bundle_file2, &options)
-        .expect("second digest failed");
+    let root_id2 =
+        digest(&reconstruct_dir, &store2, &bundle_file2, &options).expect("second digest failed");
 
     assert_eq!(
         root_id1, root_id2,
@@ -228,8 +225,7 @@ fn no_root_round_trip_voids_i1() {
         ..Default::default()
     };
 
-    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options)
-        .expect("first digest failed");
+    let root_id1 = digest(&src_dir, &store1, &bundle_file1, &options).expect("first digest failed");
 
     // Read bundle
     let bundle_bytes1 = fs::read(&bundle_file1).expect("read bundle");
@@ -261,8 +257,8 @@ fn no_root_round_trip_voids_i1() {
     let bundle_file2 = tmpdir_path.join("bundle_noroot2.dirtree");
     let store2 = Store::new(store_dir2.clone(), vec![]);
 
-    let root_id2 = digest(&reconstruct_dir, &store2, &bundle_file2, &options)
-        .expect("second digest failed");
+    let root_id2 =
+        digest(&reconstruct_dir, &store2, &bundle_file2, &options).expect("second digest failed");
 
     assert_ne!(
         root_id1, root_id2,

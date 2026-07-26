@@ -8,13 +8,13 @@ use cairn_core::hash::HashAlgorithm;
 use cairn_core::id::{DirTreeID, LinkGroupID};
 use cairn_core::model::NodeKind;
 use cairn_store::Store;
+use nix::fcntl::AtFlags;
 use nix::sys::stat::{mknod, Mode, SFlag};
 use nix::unistd::{mkfifo, Gid, Uid};
-use nix::fcntl::AtFlags;
 use std::collections::HashMap;
 use std::fs;
-use std::os::unix::fs as unix_fs;
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs as unix_fs;
 use std::path::{Path, PathBuf};
 
 /// Options for materialization.
@@ -122,11 +122,12 @@ fn materialize_node(
         let node_path = parent_path.join(&node.name);
 
         // Get node's Metadata
-        let metadata_obj = bundle
-            .get(&node.metadata_id.0)
-            .ok_or(ReconstructError::MissingBundleObject {
-                id: node.metadata_id.0,
-            })?;
+        let metadata_obj =
+            bundle
+                .get(&node.metadata_id.0)
+                .ok_or(ReconstructError::MissingBundleObject {
+                    id: node.metadata_id.0,
+                })?;
         let (_kind, metadata_bytes) = metadata_obj;
         let metadata = cairn_core::model::Metadata::decode_canonical(metadata_bytes)?;
 
@@ -143,14 +144,14 @@ fn materialize_node(
         match &node.kind {
             NodeKind::File { file_index_id } => {
                 // Get FileIndex
-                let file_index_obj = bundle
-                    .get(&file_index_id.0)
-                    .ok_or(ReconstructError::MissingBundleObject {
-                        id: file_index_id.0,
-                    })?;
+                let file_index_obj =
+                    bundle
+                        .get(&file_index_id.0)
+                        .ok_or(ReconstructError::MissingBundleObject {
+                            id: file_index_id.0,
+                        })?;
                 let (_kind, file_index_bytes) = file_index_obj;
-                let file_index =
-                    cairn_core::model::FileIndex::decode_canonical(file_index_bytes)?;
+                let file_index = cairn_core::model::FileIndex::decode_canonical(file_index_bytes)?;
 
                 // Create file
                 let mut file = fs::File::create(&node_path)?;
@@ -194,12 +195,9 @@ fn materialize_node(
             }
             NodeKind::Device { major, minor } => {
                 // Check if we should skip under --no-root
-                if let Some(skip) = noroot::decide_mknod(
-                    options.no_root,
-                    node_path.clone(),
-                    *major,
-                    *minor,
-                ) {
+                if let Some(skip) =
+                    noroot::decide_mknod(options.no_root, node_path.clone(), *major, *minor)
+                {
                     skips.push(skip);
                     // Don't create the device node
                 } else {
@@ -285,11 +283,7 @@ fn apply_metadata(
                 Err(nix::Error::EPERM) => {
                     return Err(ReconstructError::PrivilegeRequired {
                         path: path.to_path_buf(),
-                        op: format!(
-                            "chown uid={} gid={}",
-                            metadata.uid(),
-                            metadata.gid()
-                        ),
+                        op: format!("chown uid={} gid={}", metadata.uid(), metadata.gid()),
                     });
                 }
                 Err(e) => return Err(ReconstructError::Io(std::io::Error::from(e))),
@@ -298,21 +292,19 @@ fn apply_metadata(
     }
 
     // Apply chmod
-    let (effective_mode, chmod_skip) = noroot::decide_chmod_setbits(
-        options.no_root,
-        path.to_path_buf(),
-        metadata.mode(),
-    );
+    let (effective_mode, chmod_skip) =
+        noroot::decide_chmod_setbits(options.no_root, path.to_path_buf(), metadata.mode());
     if let Some(skip) = chmod_skip {
         skips.push(skip);
     }
 
     // Try to chmod using libc
-    let cstr_path = std::ffi::CString::new(path.as_os_str().as_bytes())
-        .map_err(|_| ReconstructError::Io(std::io::Error::new(
+    let cstr_path = std::ffi::CString::new(path.as_os_str().as_bytes()).map_err(|_| {
+        ReconstructError::Io(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
-            "path contains null byte"
-        )))?;
+            "path contains null byte",
+        ))
+    })?;
 
     let result = unsafe { libc::chmod(cstr_path.as_ptr(), effective_mode as libc::mode_t) };
     if result != 0 && !options.no_root {
@@ -448,8 +440,12 @@ mod tests {
         bundle.insert(ObjectKind::FileIndex, file_index_id.0, file_index_bytes);
 
         // Create a node for the file
-        let node =
-            Node::new("test_file", metadata_id, None, NodeKind::File { file_index_id });
+        let node = Node::new(
+            "test_file",
+            metadata_id,
+            None,
+            NodeKind::File { file_index_id },
+        );
 
         // Create root DirTree
         let root_tree = DirTree::new(vec![node]);
@@ -500,10 +496,7 @@ mod tests {
         bundle.insert(ObjectKind::FileIndex, file_index_id.0, file_index_bytes);
 
         // Link group for both nodes
-        let link_group_id = LinkGroupID(hash_bytes(
-            HashAlgorithm::Sha256,
-            b"test link group",
-        ));
+        let link_group_id = LinkGroupID(hash_bytes(HashAlgorithm::Sha256, b"test link group"));
 
         // Two nodes with the same link group
         let node1 = Node::new(
@@ -543,10 +536,8 @@ mod tests {
         match result {
             Ok(_report) => {
                 // Verify hardlinks share inode
-                let stat1 = fs::metadata(out_dir.join("file1"))
-                    .expect("file1 should exist");
-                let stat2 = fs::metadata(out_dir.join("file2"))
-                    .expect("file2 should exist");
+                let stat1 = fs::metadata(out_dir.join("file1")).expect("file1 should exist");
+                let stat2 = fs::metadata(out_dir.join("file2")).expect("file2 should exist");
 
                 assert_eq!(
                     stat1.ino(),
@@ -608,8 +599,8 @@ mod tests {
 
         match result {
             Ok(_) => {
-                let link_target = fs::read_link(out_dir.join("link"))
-                    .expect("symlink should exist");
+                let link_target =
+                    fs::read_link(out_dir.join("link")).expect("symlink should exist");
                 assert_eq!(
                     link_target.to_string_lossy(),
                     "../nonexistent",
@@ -640,7 +631,11 @@ mod tests {
         let file_metadata = Metadata::new(0o644, 1000, 1000, vec![]);
         let file_metadata_bytes = file_metadata.encode_canonical();
         let file_metadata_id = MetadataID(hash_bytes(HashAlgorithm::Sha256, &file_metadata_bytes));
-        bundle.insert(ObjectKind::Metadata, file_metadata_id.0, file_metadata_bytes);
+        bundle.insert(
+            ObjectKind::Metadata,
+            file_metadata_id.0,
+            file_metadata_bytes,
+        );
 
         // File index (empty)
         let file_index = FileIndex::new(vec![]);
@@ -694,14 +689,9 @@ mod tests {
         match result {
             Ok(_) => {
                 // Should succeed (mode applied post-order, allowing file creation)
-                let dir_stat = fs::metadata(out_dir.join("dir"))
-                    .expect("dir should exist");
+                let dir_stat = fs::metadata(out_dir.join("dir")).expect("dir should exist");
                 let mode = dir_stat.permissions().mode();
-                assert_eq!(
-                    mode & 0o777,
-                    0o500,
-                    "directory mode should be 0o500"
-                );
+                assert_eq!(mode & 0o777, 0o500, "directory mode should be 0o500");
             }
             Err(e) => {
                 let _ = e;

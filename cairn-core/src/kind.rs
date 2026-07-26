@@ -14,4 +14,3 @@ pub const METADATA_KIND_TAG: u8 = 1;
 /// Prepended to `FileIndex::encode_canonical()` output to ensure domain separation
 /// from other object kinds (§4.1).
 pub const FILEINDEX_KIND_TAG: u8 = 2;
-
