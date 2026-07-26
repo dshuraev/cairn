@@ -1,0 +1,134 @@
+version: '3'
+
+vars:
+  DIST: '{{.ROOT_DIR}}/dist'
+  AMD64_TARGET: x86_64-unknown-linux-musl
+  ARM64_TARGET: aarch64-unknown-linux-musl
+  BINARIES: cairn-digest cairn-dirtree cairn-reconstruct
+  IMAGE: cairn
+  # Task's default fingerprint method is already `checksum`; set explicitly
+  # on every cacheable task below so behavior doesn't depend on Task's default.
+  FP_METHOD: checksum
+
+tasks:
+  deps:
+    desc: Install Rust musl targets and cargo-zigbuild for static cross-compilation
+    cmds:
+      - rustup target add {{.AMD64_TARGET}} {{.ARM64_TARGET}}
+      - cargo install cargo-zigbuild --locked
+      - pip install --user ziglang
+    status:
+      - rustup target list --installed | grep -q {{.AMD64_TARGET}}
+      - rustup target list --installed | grep -q {{.ARM64_TARGET}}
+      - command -v cargo-zigbuild
+      - command -v zig
+
+  fmt:
+    desc: Check Rust formatting
+    cmds:
+      - cargo fmt --all -- --check
+
+  lint:
+    desc: Run clippy across the workspace
+    cmds:
+      - cargo clippy --workspace --all-targets -- -D warnings
+
+  test:
+    desc: Run the workspace test suite
+    cmds:
+      - cargo test --workspace
+
+  build:amd64:
+    desc: Cross-compile static release binaries for x86_64
+    deps: [deps]
+    method: '{{.FP_METHOD}}'
+    sources:
+      - 'cairn-*/src/**/*.rs'
+      - 'cairn-*/Cargo.toml'
+      - Cargo.toml
+      - Cargo.lock
+    generates:
+      - 'target/{{.AMD64_TARGET}}/release/cairn-digest'
+      - 'target/{{.AMD64_TARGET}}/release/cairn-dirtree'
+      - 'target/{{.AMD64_TARGET}}/release/cairn-reconstruct'
+    cmds:
+      - cargo zigbuild --release --workspace --target {{.AMD64_TARGET}}
+      - mkdir -p {{.DIST}}/linux-amd64
+      - for: { var: BINARIES, split: ' ' }
+        cmd: cp target/{{.AMD64_TARGET}}/release/{{.ITEM}} {{.DIST}}/linux-amd64/{{.ITEM}}
+
+  build:arm64:
+    desc: Cross-compile static release binaries for arm64
+    deps: [deps]
+    method: '{{.FP_METHOD}}'
+    sources:
+      - 'cairn-*/src/**/*.rs'
+      - 'cairn-*/Cargo.toml'
+      - Cargo.toml
+      - Cargo.lock
+    generates:
+      - 'target/{{.ARM64_TARGET}}/release/cairn-digest'
+      - 'target/{{.ARM64_TARGET}}/release/cairn-dirtree'
+      - 'target/{{.ARM64_TARGET}}/release/cairn-reconstruct'
+    cmds:
+      - cargo zigbuild --release --workspace --target {{.ARM64_TARGET}}
+      - mkdir -p {{.DIST}}/linux-arm64
+      - for: { var: BINARIES, split: ' ' }
+        cmd: cp target/{{.ARM64_TARGET}}/release/{{.ITEM}} {{.DIST}}/linux-arm64/{{.ITEM}}
+
+  build:
+    desc: Cross-compile release binaries for both x86_64 and arm64
+    deps: [build:amd64, build:arm64]
+
+  checksums:
+    desc: Generate SHA-256 checksums for all distributable binaries
+    deps: [build]
+    method: '{{.FP_METHOD}}'
+    sources:
+      - dist/linux-amd64/*
+      - dist/linux-arm64/*
+    generates:
+      - dist/checksums.txt
+    cmds:
+      - cmd: sh -c 'cd {{.DIST}} && sha256sum linux-amd64/* linux-arm64/* > checksums.txt'
+
+  docker:build:amd64:
+    desc: Build the Alpine-based distribution image for linux/amd64
+    deps: [build, checksums]
+    method: '{{.FP_METHOD}}'
+    sources:
+      - Dockerfile
+      - dist/linux-amd64/*
+      - dist/checksums.txt
+    cmds:
+      - docker buildx build --platform linux/amd64 --load -t {{.IMAGE}}:amd64 -f Dockerfile .
+
+  docker:build:arm64:
+    desc: Build the Alpine-based distribution image for linux/arm64
+    deps: [build, checksums]
+    method: '{{.FP_METHOD}}'
+    sources:
+      - Dockerfile
+      - dist/linux-arm64/*
+      - dist/checksums.txt
+    cmds:
+      - docker buildx build --platform linux/arm64 --load -t {{.IMAGE}}:arm64 -f Dockerfile .
+
+  docker:build:
+    desc: Build Alpine-based distribution images for both architectures
+    deps: [docker:build:amd64, docker:build:arm64]
+
+  ci:
+    desc: Full CI pipeline — lint, test, cross-compile, checksum, package
+    cmds:
+      - task: fmt
+      - task: lint
+      - task: test
+      - task: build
+      - task: checksums
+      - task: docker:build
+
+  clean:
+    desc: Remove build and distribution artifacts
+    cmds:
+      - rm -rf {{.DIST}} target
