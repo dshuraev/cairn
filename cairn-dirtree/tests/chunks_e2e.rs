@@ -3,7 +3,7 @@
 //! These tests use `cairn_digest::digest` to build real bundle fixtures with
 //! overlapping and disjoint chunk sets, then test the chunks command logic.
 
-#![allow(clippy::unwrap_used)]
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use cairn_core::bundle::DirTreeBundle;
 use cairn_core::hash::HashAlgorithm;

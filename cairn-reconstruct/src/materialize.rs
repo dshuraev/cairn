@@ -400,6 +400,7 @@ fn apply_metadata_symlink(
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::expect_used)]
     use super::*;
     use cairn_core::bundle::ObjectKind;
     use cairn_core::hash::{hash_bytes, HashAlgorithm};
