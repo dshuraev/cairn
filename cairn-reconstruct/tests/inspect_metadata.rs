@@ -5,8 +5,9 @@ use cairn_digest::{digest, DigestOptions};
 use cairn_reconstruct::{materialize, MaterializeOptions};
 use cairn_store::Store;
 use std::fs;
-use std::os::unix::fs::MetadataExt;
 use tempfile::TempDir;
+
+type BundleEntry<'a> = ([u8; 32], (u8, &'a [u8]));
 
 #[test]
 fn inspect_metadata_objects() {
@@ -57,7 +58,7 @@ fn inspect_metadata_objects() {
     let mut bundle1_metadata = Vec::new();
     for (_hash, (_kind, bytes)) in bundle1_bytes_iter(&bundle_bytes1) {
         if let Ok(meta) = Metadata::decode_canonical(bytes) {
-            bundle1_metadata.push((meta.clone(), hex_digest(&bytes)));
+            bundle1_metadata.push((meta.clone(), hex_digest(bytes)));
         }
     }
 
@@ -99,14 +100,14 @@ fn inspect_metadata_objects() {
 
     // Read and inspect the second bundle
     let bundle_bytes2 = fs::read(&bundle_file2).expect("read bundle2");
-    let (_version2, _root_from_bundle2, _algo2, bundle2) =
+    let (_version2, _root_from_bundle2, _algo2, _bundle2) =
         DirTreeBundle::decode_canonical(&bundle_bytes2).expect("decode bundle2");
 
     // Collect all metadata from bundle2
     let mut bundle2_metadata = Vec::new();
     for (_hash, (_kind, bytes)) in bundle2_bytes_iter(&bundle_bytes2) {
         if let Ok(meta) = Metadata::decode_canonical(bytes) {
-            bundle2_metadata.push((meta.clone(), hex_digest(&bytes)));
+            bundle2_metadata.push((meta.clone(), hex_digest(bytes)));
         }
     }
 
@@ -164,10 +165,12 @@ fn hex_digest(bytes: &[u8]) -> String {
 }
 
 // Helper to iterate over bundle bytes
-fn bundle1_bytes_iter(bytes: &[u8]) -> Vec<([u8; 32], (u8, &[u8]))> {
+// TODO: These are stub implementations that return empty vecs and do not decode actual bundle entries.
+// This test currently produces no assertions and serves only for diagnostic output via eprintln!.
+fn bundle1_bytes_iter(_bytes: &[u8]) -> Vec<BundleEntry<'_>> {
     vec![]
 }
 
-fn bundle2_bytes_iter(bytes: &[u8]) -> Vec<([u8; 32], (u8, &[u8]))> {
+fn bundle2_bytes_iter(_bytes: &[u8]) -> Vec<BundleEntry<'_>> {
     vec![]
 }

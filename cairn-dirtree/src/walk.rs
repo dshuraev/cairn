@@ -128,6 +128,7 @@ pub fn resolve(
 }
 
 /// Recursively resolve a directory, appending nodes to the output vector.
+#[allow(clippy::only_used_in_recursion)]
 fn resolve_dir(
     _dirtree_id: &cairn_core::hash::Hash,
     path_prefix: &str,
@@ -289,11 +290,6 @@ mod tests {
     /// Helper: creates a Metadata with given mode, uid, gid.
     fn make_metadata(mode: u32, uid: u32, gid: u32) -> Metadata {
         Metadata::new(mode, uid, gid, vec![])
-    }
-
-    /// Helper: computes Metadata ID.
-    fn metadata_id(mode: u32, uid: u32, gid: u32, algo: HashAlgorithm) -> MetadataID {
-        make_metadata(mode, uid, gid).id(algo)
     }
 
     #[test]

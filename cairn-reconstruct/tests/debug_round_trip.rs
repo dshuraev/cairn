@@ -124,13 +124,11 @@ fn debug_round_trip() {
     fn list_dir(path: &std::path::Path) -> Vec<(String, u32)> {
         let mut entries = Vec::new();
         if let Ok(dir_entries) = fs::read_dir(path) {
-            for entry in dir_entries {
-                if let Ok(entry) = entry {
-                    let name = entry.file_name();
-                    if let Ok(meta) = fs::symlink_metadata(entry.path()) {
-                        let mode = meta.mode();
-                        entries.push((name.to_string_lossy().into_owned(), mode));
-                    }
+            for entry in dir_entries.flatten() {
+                let name = entry.file_name();
+                if let Ok(meta) = fs::symlink_metadata(entry.path()) {
+                    let mode = meta.mode();
+                    entries.push((name.to_string_lossy().into_owned(), mode));
                 }
             }
         }
@@ -151,7 +149,6 @@ fn debug_round_trip() {
 
     // Check inodes of hardlinks
     eprintln!("\n=== HARDLINK CHECK ===");
-    let mut inode_map: HashMap<u64, Vec<String>> = HashMap::new();
 
     fn collect_inodes(
         path: &std::path::Path,
@@ -159,23 +156,21 @@ fn debug_round_trip() {
         inode_map: &mut HashMap<u64, Vec<String>>,
     ) {
         if let Ok(entries) = fs::read_dir(path) {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    let name = entry.file_name().to_string_lossy().into_owned();
-                    let entry_path = entry.path();
-                    if let Ok(meta) = fs::symlink_metadata(&entry_path) {
-                        let full_name = if prefix.is_empty() {
-                            name.clone()
-                        } else {
-                            format!("{}/{}", prefix, name)
-                        };
-                        inode_map
-                            .entry(meta.ino())
-                            .or_insert_with(Vec::new)
-                            .push(full_name.clone());
-                        if meta.is_dir() {
-                            collect_inodes(&entry_path, &full_name, inode_map);
-                        }
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                let entry_path = entry.path();
+                if let Ok(meta) = fs::symlink_metadata(&entry_path) {
+                    let full_name = if prefix.is_empty() {
+                        name.clone()
+                    } else {
+                        format!("{}/{}", prefix, name)
+                    };
+                    inode_map
+                        .entry(meta.ino())
+                        .or_default()
+                        .push(full_name.clone());
+                    if meta.is_dir() {
+                        collect_inodes(&entry_path, &full_name, inode_map);
                     }
                 }
             }
@@ -230,31 +225,26 @@ fn debug_round_trip() {
     fn get_file_metadata(path: &std::path::Path) -> Vec<(String, u32, u32, u32)> {
         let mut files = Vec::new();
         if let Ok(entries) = fs::read_dir(path) {
-            for entry in entries {
-                if let Ok(entry) = entry {
-                    let name = entry.file_name().to_string_lossy().into_owned();
-                    let path = entry.path();
-                    if let Ok(meta) = fs::symlink_metadata(&path) {
-                        files.push((name.clone(), meta.mode(), meta.uid(), meta.gid()));
+            for entry in entries.flatten() {
+                let name = entry.file_name().to_string_lossy().into_owned();
+                let path = entry.path();
+                if let Ok(meta) = fs::symlink_metadata(&path) {
+                    files.push((name.clone(), meta.mode(), meta.uid(), meta.gid()));
 
-                        // Recurse into directories
-                        if meta.is_dir() {
-                            if let Ok(subentries) = fs::read_dir(&path) {
-                                for subentry in subentries {
-                                    if let Ok(subentry) = subentry {
-                                        let subname =
-                                            subentry.file_name().to_string_lossy().into_owned();
-                                        let subpath = subentry.path();
-                                        if let Ok(submeta) = fs::symlink_metadata(&subpath) {
-                                            let full_name = format!("{}/{}", name, subname);
-                                            files.push((
-                                                full_name,
-                                                submeta.mode(),
-                                                submeta.uid(),
-                                                submeta.gid(),
-                                            ));
-                                        }
-                                    }
+                    // Recurse into directories
+                    if meta.is_dir() {
+                        if let Ok(subentries) = fs::read_dir(&path) {
+                            for subentry in subentries.flatten() {
+                                let subname = subentry.file_name().to_string_lossy().into_owned();
+                                let subpath = subentry.path();
+                                if let Ok(submeta) = fs::symlink_metadata(&subpath) {
+                                    let full_name = format!("{}/{}", name, subname);
+                                    files.push((
+                                        full_name,
+                                        submeta.mode(),
+                                        submeta.uid(),
+                                        submeta.gid(),
+                                    ));
                                 }
                             }
                         }

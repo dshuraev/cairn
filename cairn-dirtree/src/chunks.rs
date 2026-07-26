@@ -110,7 +110,7 @@ pub fn compute(
     // Helper: sort and collect ChunkIDs by their raw 32-byte hash digest.
     fn sorted_chunk_ids(ids: impl Iterator<Item = ChunkID>) -> Vec<ChunkID> {
         let mut v: Vec<ChunkID> = ids.collect();
-        v.sort_unstable_by(|a, b| chunk_id_bytes(&a).cmp(chunk_id_bytes(&b)));
+        v.sort_unstable_by(|a, b| chunk_id_bytes(a).cmp(chunk_id_bytes(b)));
         v
     }
 
@@ -163,15 +163,10 @@ mod tests {
     use super::*;
     use cairn_core::bundle::ObjectKind;
     use cairn_core::hash::hash_bytes;
-    use cairn_core::id::MetadataID;
     use cairn_core::model::{DirTree, FileIndex, Metadata, Node, NodeKind};
 
     fn make_metadata(mode: u32, uid: u32, gid: u32) -> Metadata {
         Metadata::new(mode, uid, gid, vec![])
-    }
-
-    fn metadata_id(mode: u32, uid: u32, gid: u32, algo: HashAlgorithm) -> MetadataID {
-        make_metadata(mode, uid, gid).id(algo)
     }
 
     fn build_bundle_with_chunks(

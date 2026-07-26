@@ -108,7 +108,7 @@ fn render_ls_txt(nodes: &[ResolvedNode]) -> String {
             crate::walk::ResolvedKind::File { chunks } => {
                 output.push_str(&format!("{} chunks", chunks.len()));
             }
-            _ => output.push_str("-"),
+            _ => output.push('-'),
         }
 
         output.push('\n');
@@ -209,7 +209,7 @@ fn render_stat_txt(node: &ResolvedNode) -> String {
     output.push_str("link_group:  ");
     match node.link_group {
         Some(lg) => output.push_str(&id_str(cairn_core::hash::HashAlgorithm::Sha256, &lg.0)),
-        None => output.push_str("-"),
+        None => output.push('-'),
     }
     output.push('\n');
 
@@ -331,9 +331,8 @@ fn render_tree_txt(nodes: &[ResolvedNode]) -> String {
         let indent = "  ".repeat(depth);
         output.push_str(&indent);
         output.push_str(&node.name);
-        match &node.kind {
-            crate::walk::ResolvedKind::Dir { .. } => output.push('/'),
-            _ => {}
+        if let crate::walk::ResolvedKind::Dir { .. } = &node.kind {
+            output.push('/');
         }
         output.push('\n');
     }
@@ -342,7 +341,7 @@ fn render_tree_txt(nodes: &[ResolvedNode]) -> String {
 
 fn render_tree_json(nodes: &[ResolvedNode]) -> String {
     // Build tree structure from flat list recursively.
-    fn build_tree(nodes: &[ResolvedNode], prefix: &str, depth: usize) -> Vec<TreeNode> {
+    fn build_tree(nodes: &[ResolvedNode], prefix: &str) -> Vec<TreeNode> {
         let mut result = Vec::new();
         let mut seen = std::collections::HashSet::new();
 
@@ -371,7 +370,7 @@ fn render_tree_json(nodes: &[ResolvedNode]) -> String {
                 };
 
                 let children = if matches!(node.kind, crate::walk::ResolvedKind::Dir { .. }) {
-                    let child_list = build_tree(nodes, &next_prefix, depth + 1);
+                    let child_list = build_tree(nodes, &next_prefix);
                     if child_list.is_empty() {
                         None
                     } else {
@@ -392,7 +391,7 @@ fn render_tree_json(nodes: &[ResolvedNode]) -> String {
         result
     }
 
-    let children = build_tree(nodes, "", 0);
+    let children = build_tree(nodes, "");
     let root = TreeNode {
         name: String::new(),
         kind: "dir".to_string(),
@@ -1067,8 +1066,8 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&json_str).unwrap();
 
         // Mode in JSON should be masked decimal value (0o644 = 420 in decimal)
-        assert_eq!(json["entries"][0]["mode"], 0o644 as u32);
-        assert!(json["entries"][0]["mode"] != 0o100644 as u32);
+        assert_eq!(json["entries"][0]["mode"], 0o644);
+        assert!(json["entries"][0]["mode"] != 0o100644);
     }
 
     #[test]
@@ -1222,7 +1221,7 @@ mod tests {
             link_group: None,
         };
 
-        let txt_all = render_xattrs(&[node.clone()], None, OutputFormat::Txt);
+        let txt_all = render_xattrs(std::slice::from_ref(&node), None, OutputFormat::Txt);
         assert!(txt_all.contains("user.foo"));
         assert!(txt_all.contains("user.bar"));
         assert!(txt_all.contains("system.attr"));

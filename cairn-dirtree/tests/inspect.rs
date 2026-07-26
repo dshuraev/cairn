@@ -189,10 +189,8 @@ fn links_shows_hardlinked_pairs() {
     let nodes =
         cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
-    let output = cairn_dirtree::render::render_links(&nodes, algo, OutputFormat::Txt);
-
     // Output should be generated without error (may be empty if no hardlinks)
-    assert!(output.len() >= 0); // Always true, just verifies no panic
+    let _ = cairn_dirtree::render::render_links(&nodes, algo, OutputFormat::Txt);
 }
 
 #[test]
@@ -267,10 +265,8 @@ fn xattrs_txt_generates_output() {
     let nodes =
         cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
-    let output = cairn_dirtree::render::render_xattrs(&nodes, None, OutputFormat::Txt);
-
     // Output should be generated without error (may be empty if no xattrs)
-    assert!(output.len() >= 0); // Always true, just verifies no panic
+    let _ = cairn_dirtree::render::render_xattrs(&nodes, None, OutputFormat::Txt);
 }
 
 #[test]
@@ -297,11 +293,9 @@ fn symlinks_output_includes_target() {
     let nodes =
         cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
-    let output = cairn_dirtree::render::render_symlinks(&nodes, OutputFormat::Txt);
-
     // If there's a symlink, verify it appears in output
     // (may be empty if no symlinks, which is fine)
-    assert!(output.len() >= 0); // Always true, just verifies no panic
+    let _ = cairn_dirtree::render::render_symlinks(&nodes, OutputFormat::Txt);
 }
 
 #[test]
@@ -314,10 +308,8 @@ fn special_nodes_output_format() {
     let nodes =
         cairn_dirtree::walk::resolve(root, algo, &bundle).expect("failed to resolve bundle");
 
-    let output = cairn_dirtree::render::render_special(&nodes, OutputFormat::Txt);
-
     // Output should be valid even if no special nodes exist
-    assert!(output.len() >= 0); // Always true, just verifies no panic
+    let _ = cairn_dirtree::render::render_special(&nodes, OutputFormat::Txt);
 }
 
 #[test]
@@ -379,7 +371,7 @@ fn binary_handles_closed_stdout_without_panic() {
 
     // Spawn the cairn-dirtree binary with piped stdout
     let mut child = std::process::Command::new(&binary_path)
-        .args(&["tree", "--input", bundle_path.to_str().unwrap()])
+        .args(["tree", "--input", bundle_path.to_str().unwrap()])
         .stdout(Stdio::piped())
         .spawn()
         .expect("failed to spawn cairn-dirtree");
@@ -448,7 +440,7 @@ fn cli_rejects_unsupported_bundle_version() {
 
     // Run cairn-dirtree ls command with the bad bundle
     let output = Command::new(&binary_path)
-        .args(&["ls", "--input", bundle_path.to_str().unwrap()])
+        .args(["ls", "--input", bundle_path.to_str().unwrap()])
         .output()
         .expect("failed to run cairn-dirtree");
 
